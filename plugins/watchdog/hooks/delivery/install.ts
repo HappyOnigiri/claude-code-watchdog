@@ -25,6 +25,7 @@ import {
   routeNow,
   setImmuneTurns,
   setNudgeClock,
+  setNudgeNits,
   spendNudge,
   startMainTurn,
 } from './nudge';
@@ -249,6 +250,7 @@ export const installDelivery = (
   options: PluginOptions
 ): void => {
   setImmuneTurns(options.immuneTurns);
+  setNudgeNits(options.nudgeNits);
   on('turn.start', onTurnStart);
   on('turn.complete', { reason: /^/u }, onTurnComplete);
   on('tool.call', { tool: /^/u }, onToolCall);

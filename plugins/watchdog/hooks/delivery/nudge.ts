@@ -29,9 +29,14 @@ export type MainLoop = {
   readonly isAfterEsc: boolean;
 };
 
-// `isHeadless`: a `-p` or SDK session (§5.3), which has no nudge and no cards (§10.6).
+// `isHeadless`: a `-p` or SDK session (§5.3), which has no nudge and no cards (§10.6). `isNitNudged`: the option
+// `nudgeNits`, under which a nit goes as a concern does.
 export type Routing = MainLoop &
-  Omit<NudgeClock, 'dueAt'> & { readonly immuneTurns: number; readonly isHeadless: boolean };
+  Omit<NudgeClock, 'dueAt'> & {
+    readonly immuneTurns: number;
+    readonly isHeadless: boolean;
+    readonly isNitNudged: boolean;
+  };
 
 type Cooldown = Pick<Routing, 'turn' | 'nudgeTurn' | 'immuneTurns'>;
 
@@ -59,9 +64,10 @@ export const lateRoute = (severity: Severity, at: Routing): 'nudge pending' | 'h
 };
 
 // §10.1 to §10.4: a nit waits for the next person prompt; a concern or blocker steers while a main turn
-// runs, else it is a late note.
+// runs, else it is a late note. With `nudgeNits` a nit routes as a concern: it steers, or waits for a nudge on the
+// concern budget and cooldown.
 export const routeNote = (severity: Severity, at: Routing): DeliveryState => {
-  if (severity === 'nit') {
+  if (severity === 'nit' && !at.isNitNudged) {
     return 'aside on next prompt';
   }
   return at.isTurnRunning ? 'steered' : lateRoute(severity, at);
@@ -114,11 +120,13 @@ const memory: {
   loop: Omit<MainLoop, 'turn'>;
   clock: NudgeClock;
   immuneTurns: number;
+  isNitNudged: boolean;
   warning: string | undefined;
 } = {
   loop: { isTurnRunning: false, isAfterEsc: false },
   clock: { nudges: 0, blockerNudges: 0, nudgeTurn: null, dueAt: null },
   immuneTurns: DEFAULT_IMMUNE_TURNS,
+  isNitNudged: false,
   warning: undefined,
 };
 
@@ -130,6 +138,7 @@ export const currentRouting = (): Routing => ({
   nudgeTurn: memory.clock.nudgeTurn,
   immuneTurns: memory.immuneTurns,
   isHeadless: !isInteractiveSession(),
+  isNitNudged: memory.isNitNudged,
 });
 
 // §10.1 to §10.4, §11.4: the route of an admitted note now.
@@ -143,6 +152,12 @@ export const setImmuneTurns = (value: unknown): void => {
   const { immuneTurns, warning } = immuneTurnsOf(value);
   memory.immuneTurns = immuneTurns;
   memory.warning = warning;
+};
+
+// `nudgeNits`: the option is off unless it is `true`, so an absent or bad value keeps the default. A change to it
+// reloads the mod and sets it again.
+export const setNudgeNits = (value: unknown): void => {
+  memory.isNitNudged = value === true;
 };
 
 export const immuneTurnsWarning = (): string | undefined => memory.warning;
