@@ -116,6 +116,10 @@ Rules:
 - The kit draws `AbovePrompt` on `vscode` and `mobile` too. Mount it only on `terminal` and `desktop` (`BAND_SURFACES`).
 - A test has 5000 ms unless it sets `timeoutMs`. It has no fs, network, process or model.
 
+## Install the working tree
+
+`make install` installs `plugins/watchdog` as the working tree has it, uncommitted changes too, as `watchdog@happyonigiri-plugins`. It copies the folder into the local marketplace `~/.claude/local-marketplaces/happyonigiri` (`scripts/local-install/`), then uninstalls and installs the plugin, since `claude plugin update` skips a build whose `version` did not change. `uninstall` drops the options set in `/config`; the script saves them again. Restart Claude Code to apply. Run it on `main` to go back to the released build.
+
 ## Release
 
 Claude Code offers a plugin update only when the `version` in `plugins/watchdog/.claude-plugin/plugin.json` changes; new commits alone show "already at the latest version". Raise the version in the commit that changes how the plugin behaves: code, prompts, agents, commands or hooks under `plugins/watchdog/`. A change to metadata text only, such as the `description`, does not need a new version. It reaches users with the next release.
