@@ -166,7 +166,11 @@ const armNudge = async ($: EngineInterface): Promise<void> => {
 
 // §10.7: the main-loop counter adds 1 at each `turn.start`; `$.state` key `turns` keeps a copy (§14.1).
 // §10.3 step 2: a turn that starts ends the 2 s wait, and its notes wait for a tool result of that turn.
+// From 2.1.299 a subagent's turn (a review's too) fires `turn.start` with its `agentId`: it passes as it came.
 const onTurnStart: Hook<'turn.start'> = async ($, e, next) => {
+  if ('agentId' in e && e.agentId !== undefined) {
+    return next(e);
+  }
   const turn = countTurn();
   startMainTurn(e.text);
   memory.wait?.cancel();

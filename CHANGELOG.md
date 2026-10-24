@@ -1,7 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 - 2026-10-24
 
+- Nudges work again on Claude Code 2.1.299 and later. These versions also report a review's own turn start, and the
+  plugin took it for a turn of the agent you work with: a note that came after the reply waited for your next prompt,
+  and `turns_ago` and the cooldown counted the reviews too.
 - The plugin moved to the `matteoantoci-plugins` marketplace (`matteoantoci/claude-plugins`). The `matteoantoci`
   marketplace in this repo is gone. To move: `/plugin marketplace remove matteoantoci`, then
   `/plugin marketplace add matteoantoci/claude-plugins` and `/plugin install watchdog@matteoantoci-plugins`. Plugin
