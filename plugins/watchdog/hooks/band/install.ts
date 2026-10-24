@@ -20,6 +20,10 @@ type Health = PluginState['watchdog']['health'];
 // The band value this module instance last wrote to `$.state`, as JSON; whether it read the band back (§14.6).
 const memory: { written: string | undefined; isLoaded: boolean } = { written: undefined, isLoaded: false };
 
+// `hideEmptyBand`: whether an empty band draws nothing. The option is off unless it is `true`, so an absent or bad
+// value keeps the default. A change to it reloads the mod and sets it again.
+const settings: { isEmptyHidden: boolean } = { isEmptyHidden: false };
+
 // §13.1: a `$.state` write draws the band again; only a band that changed is written.
 const writeBand = async ($: EngineInterface): Promise<void> => {
   const band = bandState(currentTurn());
@@ -151,7 +155,15 @@ const onBand: BandHook = async ($, e, next) => {
   const el = $.ui.resolve(e);
   // §13.1: a collapsed card names its watchdog only when 2 or more watchdogs are enabled.
   const watchdogs = currentRoster().filter((watchdog) => watchdog.isEnabled).length;
-  const tree = bandTree(el, { isOn, band, trouble, columns, watchdogs, onToggle: toggleCard });
+  const tree = bandTree(el, {
+    isOn,
+    band,
+    trouble,
+    isEmptyHidden: settings.isEmptyHidden,
+    columns,
+    watchdogs,
+    onToggle: toggleCard,
+  });
   if (tree === undefined) {
     return base;
   }
@@ -176,6 +188,7 @@ export const installBand = (
   options: PluginOptions
 ): void => {
   setHideNudged(options.hideNudgedNotes);
+  settings.isEmptyHidden = options.hideEmptyBand === true;
   watchHeldNotes(changeCard);
   on('tool.call', { tool: /./u }, afterTool);
   on('turn.start', { turnId: /^/u }, afterTurnStart);

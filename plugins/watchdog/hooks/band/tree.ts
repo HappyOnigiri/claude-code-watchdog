@@ -13,13 +13,14 @@ import type { BandElements, Mode } from './card-row';
 import type { Band, Card } from './cards';
 import type { RenderChildren, RenderElement } from 'claude-code';
 
-// What the band draws: the on flag (undefined before any), the cards, the failure line (§12.5),
-// `props.bodyColumns`, the number of enabled watchdogs of the roster, and what a press on a full card runs, with the
-// card's `key`.
+// What the band draws: the on flag (undefined before any), the cards, the failure line (§12.5), whether
+// `hideEmptyBand` is on, `props.bodyColumns`, the number of enabled watchdogs of the roster, and what a press on a full
+// card runs, with the card's `key`.
 export type BandView = {
   readonly isOn: boolean | undefined;
   readonly band: Band;
   readonly trouble: string | undefined;
+  readonly isEmptyHidden: boolean;
   readonly columns: number;
   readonly watchdogs: number;
   readonly onToggle: (key: string) => void;
@@ -156,14 +157,18 @@ const bandBody = (el: BandElements, view: BandView, mode: Mode): RenderElement[]
   return rows.length === 0 ? [] : [el.Box({ marginTop: 1, flexDirection: 'column', children: rows })];
 };
 
+// `hideEmptyBand`: while on with no card and no failure line, the band draws nothing, the divider neither.
+const isHiddenEmpty = (view: BandView): boolean =>
+  view.isEmptyHidden && view.band.cards.length === 0 && view.trouble === undefined;
+
 // §13.1, §12.5, §5.2: the count line, then the failure line and the cards; one dim line after `/watchdog off`;
-// nothing before the session was ever on.
+// nothing before the session was ever on, or while `hideEmptyBand` hides an empty band.
 const bandRows = (el: BandElements, view: BandView): RenderElement[] | undefined => {
   if (view.isOn === false) {
     const off = el.Text({ dimColor: true, wrap: 'truncate-end', children: 'watchdog · off · /watchdog on' });
     return [row(el, 'watchdog-off', off)];
   }
-  if (view.isOn !== true) {
+  if (view.isOn !== true || isHiddenEmpty(view)) {
     return undefined;
   }
   const mode = modeOf(view.columns);
@@ -177,7 +182,8 @@ const bandRows = (el: BandElements, view: BandView): RenderElement[] | undefined
 };
 
 // §13.1: the divider, a dotted line in `subtle` across `bodyColumns`, then the rows. It is the first row in each state,
-// so it never moves the band's height; the engine draws its `[-]` on it, past a blank cell after its end.
+// so it never moves the band's height, but for `hideEmptyBand`; the engine draws its `[-]` on it, past a blank cell
+// after its end.
 export const bandTree = (el: BandElements, view: BandView): RenderElement | undefined => {
   const rows = bandRows(el, view);
   if (rows === undefined) {
