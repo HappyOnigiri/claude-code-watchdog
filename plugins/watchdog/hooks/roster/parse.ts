@@ -1,7 +1,7 @@
 import { DEFAULT_WATCHDOG } from '../agents/roster';
 import { MAX_NOTES_PER_REVIEW, SLUG_MAX_LENGTH } from '../constants';
 import { errorText } from '../errors';
-import { isEffortSetting, parseModel } from './model';
+import { INHERIT_MODEL, isEffortSetting, parseModel } from './model';
 import { checkTools } from './tools';
 import type { ReviewMode, Watchdog } from '../agents/roster';
 import type { EffortSetting } from './model';
@@ -99,14 +99,14 @@ const slugOf = (name: string): string =>
     .slice(0, SLUG_MAX_LENGTH)
     .replace(/-+$/u, '');
 
-// §6.2: `inherit` gives a warning and the default model; another provider keeps the entry as `no_model`.
+// §6.2: `inherit` goes to the agent spec, which runs the agent on the session's model; another provider keeps the
+// entry as `no_model`.
 const modelOf = (
   text: string
 ): { model: string; level: EffortSetting | undefined; noModel: string | null; problems: string[] } => {
   const setting = parseModel(text);
   if (setting.kind === 'inherit') {
-    const problems = [`model "${text}" dropped; the default model applies`];
-    return { model: DEFAULT_WATCHDOG.model, level: undefined, noModel: null, problems };
+    return { model: INHERIT_MODEL, level: undefined, noModel: null, problems: [] };
   }
   return setting.kind === 'model'
     ? { model: setting.model, level: setting.level, noModel: null, problems: [] }

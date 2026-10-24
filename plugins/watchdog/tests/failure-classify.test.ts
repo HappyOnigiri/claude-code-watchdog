@@ -71,6 +71,11 @@ describe('§12.2 model compare', () => {
     expect(isSameModel('opus', 'claude-sonnet-5-5')).toBe(false);
   });
 
+  test('a roster inherit matches any model the session gave', () => {
+    expect(isSameModel('inherit', 'claude-haiku-4-5')).toBe(true);
+    expect(isSameModel('inherit', 'claude-opus-5-5')).toBe(true);
+  });
+
   test('a full roster id matches only an equal id', () => {
     expect(isSameModel('claude-opus-4-5', 'claude-opus-4-5')).toBe(true);
     expect(isSameModel('claude-opus-4-5', 'claude-opus-4-5-20251101')).toBe(false);

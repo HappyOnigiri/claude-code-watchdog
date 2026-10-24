@@ -77,12 +77,11 @@ describe('model and effort of an entry (§6.2)', () => {
     ]);
   });
 
-  test('model inherit gives a warning and the default model', () => {
+  test('model inherit keeps inherit for the agent spec, with no warning', () => {
     const parsed = parseRosterFile(project({ watchdogs: [{ name: 'a', model: 'inherit' }] }));
-    expect(parsed.watchdogs?.[0]?.model).toBe('opus');
-    expect(parsed.warnings).toEqual([
-      './WATCHDOG.json: watchdog "a": model "inherit" dropped; the default model applies',
-    ]);
+    expect(parsed.watchdogs?.[0]?.model).toBe('inherit');
+    expect(parsed.watchdogs?.[0]?.noModel).toBeNull();
+    expect(parsed.warnings).toEqual([]);
   });
 
   test('another provider keeps the entry with a no_model reason', () => {

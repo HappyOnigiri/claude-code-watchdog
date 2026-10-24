@@ -112,6 +112,16 @@ describe('roster from WATCHDOG.json (§4.2, §4.3)', () => {
     expect(await status($)).toBe(ON_HEAD);
   });
 
+  test('inherit registers the agent on the session model, with no preflight call and no warning', async ($, on: Stubs) => {
+    const seen = stub(on, { [PROJECT_FILE]: file({ watchdogs: [{ name: 'a', model: 'inherit' }] }) });
+    await startOn($);
+
+    expect(seen.agents.map(({ name, model }) => ({ name, model }))).toEqual([{ name: 'a', model: 'inherit' }]);
+    expect(seen.preflights).toEqual([]);
+    expect(seen.logs).toEqual([]);
+    expect(await status($)).toBe(`${ON_HEAD}\na idle · ./WATCHDOG.json`);
+  });
+
   test('another provider gives no_model with the reason and no preflight call', async ($, on: Stubs) => {
     const seen = stub(on, { [PROJECT_FILE]: file({ watchdogs: [{ name: 'gpt', model: 'openai/gpt-5' }] }) });
     await startOn($);

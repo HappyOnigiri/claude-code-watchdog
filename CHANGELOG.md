@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.4 - 2026-10-24
+
+- `"model": "inherit"` in `WATCHDOG.json` now runs the watchdog on the session's model, as the configuration docs say.
+  Before, the plugin dropped it with a warning and used `opus`. A watchdog on `inherit` makes no preflight call at
+  `/watchdog on`, and a review takes whatever model the session gave as its own model, never as `no_model`.
+
 ## 0.2.3 - 2026-10-24
 
 - A review now sees a tool argument that spans lines, such as a Bash heredoc or the content of a Write, as lines in

@@ -87,4 +87,15 @@ describe('§12.3 the outcome of a finished review', () => {
     });
     expect(review({ ...REFUSED, usage: usage('inherit') }).kind).toBe('refused');
   });
+
+  test('a roster inherit takes the model the session gave as its own', () => {
+    const outcome = reviewOutcome({
+      end: ended('answer', 'claude-haiku-4-5'),
+      steps: 1,
+      isCompact: false,
+      model: 'inherit',
+      ran: 'claude-haiku-4-5',
+    });
+    expect(outcome).toEqual({ kind: 'answered', error: null });
+  });
 });

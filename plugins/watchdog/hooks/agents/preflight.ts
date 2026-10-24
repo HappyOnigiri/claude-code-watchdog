@@ -1,7 +1,12 @@
 import { PREFLIGHT_MAX_TOKENS } from '../constants';
 import { errorText } from '../errors';
-import { isAlias } from '../roster/model';
+import { INHERIT_MODEL, isAlias } from '../roster/model';
 import type { ModelCompleteRequest, ModelCompleteResult } from 'claude-code';
+
+// §5.2 step 2: the models to call, each once. `inherit` names no model to call: the session runs on its model
+// already, and the call takes only an alias or a full id.
+export const preflightModels = (models: readonly string[]): string[] =>
+  [...new Set(models)].filter((model) => model !== INHERIT_MODEL);
 
 // §5.2 step 2: one 1-token call for each distinct model finds a model that cannot run before any review.
 export const preflightRequest = (model: string): ModelCompleteRequest => ({
