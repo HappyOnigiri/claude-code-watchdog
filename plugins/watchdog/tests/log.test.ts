@@ -89,7 +89,7 @@ describe('review log record', () => {
   });
 
   test('a review on a model of the price table keeps its cost (§15); the dump shows it to the 1/100 cent', () => {
-    // Sonnet 5.5: 1200 × $2 + 80 × $10 + 300 × $0.20 + 40 × $2.50 per million = $0.00336.
+    // Sonnet 5.5: 1200 × $2 + 80 × $10 + 300 × $0.10 + 40 × $2.50 per million = $0.00333.
     const priced = reviewRecord({
       watchdog: DEFAULT_WATCHDOG,
       agentId: 'afake0001',
@@ -97,8 +97,8 @@ describe('review log record', () => {
       end: { ...END, usage: { ...END.usage, model: 'claude-sonnet-5-5' } },
       trace: TRACE,
     });
-    expect(priced.cost?.toFixed(6)).toBe('0.003360');
-    expect(recordText(priced)).toContain('\n- cost: $0.0034\n');
+    expect(priced.cost?.toFixed(6)).toBe('0.003330');
+    expect(recordText(priced)).toContain('\n- cost: $0.0033\n');
   });
 
   test('the log keeps the newest 100 records', () => {

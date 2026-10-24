@@ -3,7 +3,7 @@ import type { TurnUsage } from 'claude-code';
 
 // §15, build-session choice "Price table": USD for each million tokens of each token class, keyed on
 // `TurnUsage.model` (the id the API reports). The cache write is the 5-minute write.
-// Prices of 2026-10-06, from https://platform.claude.com/docs/en/about-claude/pricing.
+// Prices of 2026-10-24, from https://platform.claude.com/docs/en/about-claude/pricing.
 type Price = {
   readonly input: number;
   readonly output: number;
@@ -15,7 +15,7 @@ const HAIKU_4_5: Price = { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25
 
 const PRICES: Readonly<Record<string, Price>> = {
   'claude-opus-5-5': { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
-  'claude-sonnet-5-5': { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
+  'claude-sonnet-5-5': { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 },
   'claude-haiku-4-5-20251001': HAIKU_4_5,
   'claude-haiku-4-5': HAIKU_4_5,
 };

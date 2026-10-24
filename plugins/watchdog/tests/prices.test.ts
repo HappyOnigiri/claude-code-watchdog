@@ -11,9 +11,9 @@ const usage = (model: string) => ({
 
 describe('price table (§15)', () => {
   test('a review costs each token class at its price per million tokens of the model that ran', () => {
-    // Sonnet 5.5: $2 input, $10 output, $0.20 cache read, $2.50 cache write per million.
-    // 0.02 + 0.02 + 0.02 + 0.01 = $0.07.
-    expect(usageCost(usage('claude-sonnet-5-5'))?.toFixed(6)).toBe('0.070000');
+    // Sonnet 5.5: $2 input, $10 output, $0.10 cache read, $2.50 cache write per million.
+    // 0.02 + 0.02 + 0.01 + 0.01 = $0.06.
+    expect(usageCost(usage('claude-sonnet-5-5'))?.toFixed(6)).toBe('0.060000');
     // Opus 5.5: $4, $20, $0.20, $5. 0.04 + 0.04 + 0.02 + 0.02 = $0.12.
     expect(usageCost(usage('claude-opus-5-5'))?.toFixed(6)).toBe('0.120000');
     // Haiku 4.5, by its id and by its alias: $1, $5, $0.10, $1.25. 0.01 + 0.01 + 0.01 + 0.005 = $0.035.
