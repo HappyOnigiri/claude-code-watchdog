@@ -1,7 +1,8 @@
 import { currentTurn } from '../delivery/turns';
 import { closeUpdate, currentFeed, backlogBatch, setFeed } from '../feed/feed';
 import { changeSubagentFeed, closeSubagentUpdate, watchedSubagent, watchedSubagents } from '../subagents/watch';
-import { cadenceOf } from './cadence';
+import { dropBacklog, waitingUpdates } from './backlog';
+import { cadenceOf, countBoundary, setCadence } from './cadence';
 import { slotOf } from './slots';
 import type { Watchdog } from '../agents/roster';
 import type { Batch, Feed, UpdateClose } from '../feed/feed';
@@ -21,6 +22,24 @@ export const watchedFeeds = (): { readonly subagent: WatchedSubagent | undefined
 // §7.4, §11.2: the cadence of one pair of a watchdog and a watched agent; the primary agent's pair is the slug.
 export const cadenceKey = (slug: string, subagent: string | undefined): string =>
   subagent === undefined ? slug : `${slug}@${subagent}`;
+
+// §7.4: a review of `slug` on the watched agent `subagent` started, so its cadence there is due no more.
+export const clearDue = (slug: string, subagent: string | undefined): void => {
+  const pair = cadenceKey(slug, subagent);
+  setCadence(pair, { ...cadenceOf(pair), isDue: false });
+};
+
+// §7.4: each watchdog of the watched agent `agentId` counts its boundary by its cadence.
+export const countBoundaries = (
+  agentId: string | undefined,
+  watchers: readonly Watchdog[],
+  isTurnEnd: boolean
+): void => {
+  watchers.forEach((watchdog) => {
+    const pair = cadenceKey(watchdog.slug, agentId);
+    setCadence(pair, countBoundary(cadenceOf(pair), watchdog, isTurnEnd));
+  });
+};
 
 // §7.5: the order in which the updates closed across all watched agents (the last row of an update → its
 // rank), so that a free watchdog takes the backlog whose oldest update waits longest.
@@ -90,6 +109,15 @@ export const changeBacklog = (subagent: string | undefined, change: (feed: Feed)
   }
   const live = new Set(watchedFeeds().flatMap(({ feed }) => feed.ends.map((close) => close.uuid)));
   [...order.ranks.keys()].filter((uuid) => !live.has(uuid)).forEach((uuid) => order.ranks.delete(uuid));
+};
+
+// §7.5, §10.6: the backlog of `slug` on the watched agent `subagent` (none for the primary agent) goes. Returns how
+// many updates it held.
+export const dropUnboundBacklog = (subagent: string | undefined, slug: string): number => {
+  const feed = watchedFeeds().find((watched) => watched.subagent?.agentId === subagent)?.feed;
+  const updates = feed === undefined ? 0 : waitingUpdates(feed, feed.cursors[slug]);
+  changeBacklog(subagent, (backlog) => dropBacklog(backlog, slug));
+  return updates;
 };
 
 // §10.8: whether a review of the watchdog `slug` runs now (on any watched agent, §7.5), or is due on the watched agent

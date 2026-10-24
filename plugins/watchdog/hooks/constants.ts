@@ -54,6 +54,10 @@ export const LOG_RECORD_CAP = 100;
 // §13.4: module memory keeps the full prompts of the newest reviews for `/watchdog dump raw`.
 export const RAW_PROMPT_CAP = 5;
 
+// §7.4: module memory keeps the newest queued person prompts, and the newest main turns that run (an Esc runs two).
+export const QUEUED_PROMPT_CAP = 20;
+export const RUNNING_TURN_CAP = 4;
+
 // §13.2: a `$.ui.log` row from a `command.run` hook waits, so that it lands below the command echo.
 export const COMMAND_LOG_DELAY_MS = 300;
 

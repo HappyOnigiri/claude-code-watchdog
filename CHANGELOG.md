@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1 - 2026-10-25
+
+- A watchdog with `reviewMode: "agent-end"` now waits while you have a prompt queued for Claude. Before, it
+  reviewed as soon as Claude replied, though the queued prompt started the next turn right away. It now reviews
+  once, at the end of the last turn of the queue, with every turn in that review. A prompt that Claude takes in
+  during its work, while it still uses tools, does not make it wait. When a queued prompt never starts a turn, the
+  review runs at your next prompt.
+
 ## 0.5.0 - 2026-10-25
 
 - The new setting `nudgeNits` (default `false`) sends a nit the way a concern goes: after Claude's next tool result
