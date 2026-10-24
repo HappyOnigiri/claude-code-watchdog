@@ -1,1 +1,3 @@
+sh scripts/check-not-main.sh
+
 npm run check
