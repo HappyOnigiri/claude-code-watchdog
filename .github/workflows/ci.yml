@@ -18,7 +18,7 @@ jobs:
           cache: npm
       - run: npm ci
       # Spec §2: the pinned Claude Code; npm blocks its postinstall script, so run it by hand.
-      - run: npm install --no-save --ignore-scripts @anthropic-ai/claude-code@2.1.290
+      - run: npm install --no-save --ignore-scripts @anthropic-ai/claude-code@2.1.310
       - run: node node_modules/@anthropic-ai/claude-code/install.cjs
       - run: npx claude --version
       - run: npm run check
