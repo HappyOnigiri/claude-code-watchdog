@@ -8,5 +8,5 @@ declare module 'node:path' {
   export function join(...paths: string[]): string;
 }
 
-declare const process: { exitCode: number | undefined };
-declare const console: { error: (message: string) => void };
+declare const process: { exitCode: number | undefined; argv: string[] };
+declare const console: { error: (message: string) => void; log: (message: string) => void };
