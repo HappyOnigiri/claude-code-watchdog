@@ -26,6 +26,7 @@ import type { OnEvents } from '../hooks/on';
 import type { DeliveryEvents, DeliverySeen, DeliveryStubs } from './fixtures/delivery';
 import type { StateStubs } from './fixtures/on-state';
 import type { SessionEvents } from './fixtures/session';
+import type { TurnStartInput } from 'claude-code';
 import type { Engine } from 'claude-code/testing';
 
 const CONCERN = 'parseDate drops the timezone';
@@ -39,6 +40,12 @@ const personTurn = async ($: Engine, turnId: string): Promise<void> => {
 // The review agent's own turn.complete: the late notes it sent while the session was idle start the wait.
 const reviewEnd = async ($: Engine): Promise<void> => {
   await $.turn.complete({ ...turnEnd('r1'), agentId: REVIEW_AGENT, usage: USAGE });
+};
+
+// The review agent's own turn.start: from 2.1.299 the engine fires it with the loop's `agentId`; the 2.1.290 types
+// have no such field.
+const reviewStart = async ($: Engine, turnId: string): Promise<void> => {
+  await $.turn.start({ text: 'review', turnId, agentId: REVIEW_AGENT } as TurnStartInput);
 };
 
 // The mod's nudges: the prompts it submitted, as the engine got them.
@@ -77,6 +84,34 @@ describe('late note and nudge', () => {
     await seen.clock.advance(1999);
     expect(nudges(seen)).toEqual([]);
     await seen.clock.advance(1);
+    expect(nudges(seen)).toEqual([wrapped(`<note severity="concern">${CONCERN}</note>`)]);
+  });
+
+  test('the review agent own turn.start neither runs a main turn nor adds to the counter', async ($, on: DeliveryStubs) => {
+    const seen = stubDelivery(on);
+    await startReview($);
+    await personTurn($, 't1');
+    await $.turn.complete(turnEnd('t1'));
+    await reviewStart($, 'r1');
+    await sendNote($, 'concern', CONCERN);
+    expect(seen.logs.at(-1)).toBe(`[concern] default: ${CONCERN} (nudge pending)`);
+
+    await reviewEnd($);
+    await seen.clock.advance(2000);
+    expect(nudges(seen)).toEqual([wrapped(`<note severity="concern">${CONCERN}</note>`)]);
+  });
+
+  test('a review that starts in the 2 s wait does not end it', async ($, on: DeliveryStubs) => {
+    const seen = stubDelivery(on);
+    await startReview($);
+    await personTurn($, 't1');
+    await $.turn.complete(turnEnd('t1'));
+    await sendNote($, 'concern', CONCERN);
+    await reviewEnd($);
+    await seen.clock.advance(1000);
+
+    await reviewStart($, 'r2');
+    await seen.clock.advance(1000);
     expect(nudges(seen)).toEqual([wrapped(`<note severity="concern">${CONCERN}</note>`)]);
   });
 
