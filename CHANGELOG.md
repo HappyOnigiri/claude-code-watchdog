@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0 - 2026-10-25
+
+- The new setting `hideEmptyBand` (default `false`) hides the band above the prompt box while it has no open note:
+  no dotted line and no `watchdog · no open notes` line. A note that `hideNudgedNotes` hides counts as no note. The
+  band still shows the failure line of a watchdog with a problem, and the `watchdog · off · /watchdog on` line.
+
 ## 0.3.0 - 2026-10-24
 
 - A note that the plugin sends to Claude by a nudge now shows only in the nudge prompt. It writes no

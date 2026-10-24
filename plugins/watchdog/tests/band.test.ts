@@ -10,7 +10,7 @@ import {
   stubDelivery,
 } from './fixtures/delivery';
 import { stateIn, stubState } from './fixtures/on-state';
-import { HEADLESS_START, HOME, NOW, SESSION_ID, START, typed, SHOW_NUDGED } from './fixtures/session';
+import { HEADLESS_START, HOME, NOW, SESSION_ID, START, typed, SHOW_NUDGED, HIDE_EMPTY } from './fixtures/session';
 import type { Band, Card } from '../hooks/band/cards';
 import type { OnEvents } from '../hooks/on';
 import type { BandProps, BandSurface } from './fixtures/band';
@@ -866,18 +866,19 @@ describe('band after a reload (§14.6, §11.3)', () => {
   });
 });
 
-describe('failure line (§12.5)', () => {
-  const HALTED = {
-    watchdogs: {
-      default: {
-        problem: { state: 'halted', reason: 'Overloaded', tries: 0, nextTryAt: NOW + 12 * 60_000 },
-        failures: 3,
-        refused: 0,
-      },
+// §12.5: the `health` key of a watchdog halted for 12 more minutes.
+const HALTED = {
+  watchdogs: {
+    default: {
+      problem: { state: 'halted', reason: 'Overloaded', tries: 0, nextTryAt: NOW + 12 * 60_000 },
+      failures: 3,
+      refused: 0,
     },
-    lastError: 'default: Overloaded',
-  };
+  },
+  lastError: 'default: Overloaded',
+};
 
+describe('failure line (§12.5)', () => {
   test('a halted watchdog shows one red line, short below 80 bodyColumns, and no card', async ($, on: Stubs) => {
     stubBand(on, {}, { state: { isOn: true, source: '/watchdog on' }, health: HALTED });
     await $.session.start(START);
@@ -895,6 +896,59 @@ describe('failure line (§12.5)', () => {
     expect(await textProps($, [/^watchdog halted/u])).toEqual(onBoth([{ color: 'error', wrap: 'truncate-end' }]));
     expect((await rows($, { bodyColumns: 75 })).map((shown) => shown['watchdog-trouble'])).toEqual(
       onBoth('watchdog: 1 problem · /watchdog status')
+    );
+  });
+});
+
+describe('hideEmptyBand', () => {
+  const ON = { isOn: true, source: '/watchdog on' };
+
+  test(
+    'an empty band draws nothing; a note draws it, and a person prompt hides it again',
+    HIDE_EMPTY,
+    async ($, on: Stubs) => {
+      stubBand(on);
+      await startReview($);
+      expect(await rows($)).toEqual(onBoth({}));
+      expect(await layout($)).toEqual(onBoth([ENGINE_BAND]));
+      await sendNote($, 'nit', NIT);
+      expect(await rows($)).toEqual(
+        onBoth({
+          'watchdog-divider': divider(),
+          'watchdog-count': hinted('watchdog · 1 nit', 'a'),
+          'watchdog-card-0': `▸ NIT  ${NIT}  aside`,
+        })
+      );
+      await $.prompt.submit(PERSON_PROMPT);
+      expect(await rows($)).toEqual(onBoth({}));
+    }
+  );
+
+  test('a band of only hidden nudged notes draws nothing', HIDE_EMPTY, async ($, on: Stubs) => {
+    stubBand(on);
+    await startReview($);
+    await sendNote($, 'blocker', BLOCKER);
+    expect(await rows($)).toEqual(onBoth({}));
+  });
+
+  test('the failure line keeps the band', HIDE_EMPTY, async ($, on: Stubs) => {
+    stubBand(on, {}, { state: ON, health: HALTED });
+    await $.session.start(START);
+    expect(await rows($)).toEqual(
+      onBoth({
+        'watchdog-divider': divider(),
+        'watchdog-count': 'watchdog · no open notes',
+        'watchdog-trouble': 'watchdog halted · retry in 12 min · /watchdog on to retry now',
+      })
+    );
+  });
+
+  test('/watchdog off still draws the off line', HIDE_EMPTY, async ($, on: Stubs) => {
+    stubBand(on);
+    await startReview($);
+    await $.command.run(typed('off'));
+    expect(await rows($)).toEqual(
+      onBoth({ 'watchdog-divider': divider(), 'watchdog-off': 'watchdog · off · /watchdog on' })
     );
   });
 });

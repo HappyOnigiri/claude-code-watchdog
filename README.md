@@ -74,6 +74,8 @@ review before it nudges, so Claude does not go after a bug it already fixed.
   instead (a turn started before the nudge, or the nudge failed), its line and its card show from then on; after a
   failed nudge they show at the next turn, tool call or prompt. Set it to `false` to see the line and the card of each
   note.
+  `hideEmptyBand` (default `false`) hides the band above the prompt box while it has no open note: no dotted line and
+  no `watchdog · no open notes` line. It still shows the failure line and the `watchdog · off` line.
 - Each nudge is one more turn of Claude. After each of your prompts the plugin sends at most 1 nudge for concerns and
   2 for blockers (a concern that comes with a blocker rides along); a later note waits for your next prompt.
   `/watchdog status` shows both counts, for example `nudge 1/1 · blocker 0/2`.

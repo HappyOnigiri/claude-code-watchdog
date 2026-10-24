@@ -422,3 +422,6 @@ export const turnEnd = (turnId: string) =>
 
 // `hideNudgedNotes` off: a note of the nudge route writes its row and draws its card, as before the option.
 export const SHOW_NUDGED = { options: { hideNudgedNotes: false } };
+
+// `hideEmptyBand` on: the band draws nothing while on with no card and no failure line.
+export const HIDE_EMPTY = { options: { hideEmptyBand: true } };
