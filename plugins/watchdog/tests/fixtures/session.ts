@@ -19,6 +19,7 @@ import type {
   ToolSpec,
   TurnStepResult,
   TurnStepServerToolUse,
+  TurnUsage,
 } from 'claude-code';
 
 export type SessionEvents =
@@ -139,6 +140,8 @@ type Options = {
   messages?: readonly ApiMessage[];
   // The server tool calls of each step result (`serverToolUses`).
   serverToolUses?: readonly TurnStepServerToolUse[];
+  // The usage of each step result: one request's. Default: none.
+  stepUsage?: TurnUsage;
   files?: Record<string, WorkspaceFile>;
   // What `$.env.get` answers; a name not listed is unset. Default: `HOME` only. `$.env.set` changes it.
   env?: Readonly<Record<string, string>>;
@@ -338,7 +341,7 @@ const stubEngine = (on: SessionStubs, seen: Seen, options: Options): void => {
       answer: '',
       toolUses: [],
       stopReason: 'tool_use',
-      usage: null,
+      usage: options.stepUsage ?? null,
     };
     return options.serverToolUses === undefined ? step : { ...step, serverToolUses: options.serverToolUses };
   });

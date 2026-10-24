@@ -3,7 +3,7 @@ import { watchdogBySlug } from '../agents/roster';
 import { currentLedger, tallyReview } from '../status/ledger';
 import { currentReviews, stopReasonOf } from '../stop/reviews';
 import { subagentOfReview } from '../subagents/watch';
-import { addLogRecord, countStep, currentLog, reviewRecord, takeTrace } from './log';
+import { addLogRecord, countStep, currentLog, reviewRecord, takeTrace, traceStepUsage } from './log';
 import type { OnEvents } from '../on';
 import type { EngineInterface, TurnCompleteInput } from 'claude-code';
 
@@ -30,13 +30,19 @@ const logReview = async ($: EngineInterface, end: TurnCompleteInput): Promise<vo
 };
 
 // §12.1, §7.2: the review agent's steps are counted in a registration that did not spawn it (the spawning
-// `on('turn.step')` never sees them). The matchers only tell these `on()` from the review area's.
+// `on('turn.step')` never sees them). §15: each step's result prices its request. The matchers only tell these
+// `on()` from the review area's.
 export const installLog = (on: OnEvents<'turn.step' | 'turn.complete'>): void => {
   on('turn.step', { turnId: /^/u }, async function* (_$, e, next) {
-    if (e.agentId !== undefined && watchdogOf(e.agentId) !== undefined) {
-      countStep(e.agentId);
+    const agentId = e.agentId !== undefined && watchdogOf(e.agentId) !== undefined ? e.agentId : undefined;
+    if (agentId !== undefined) {
+      countStep(agentId);
     }
-    return yield* next(e);
+    const step = yield* next(e);
+    if (agentId !== undefined && step.usage !== null) {
+      traceStepUsage(agentId, step.usage);
+    }
+    return step;
   });
   on('turn.complete', { turnId: /^/u }, async ($, e, next) => {
     const result = await next(e);
