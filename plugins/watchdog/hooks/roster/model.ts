@@ -23,6 +23,9 @@ export type ModelSetting =
   | { readonly kind: 'inherit' }
   | { readonly kind: 'no_model'; readonly reason: string };
 
+// §6.2: the model id that runs the agent on the session's model; the agent spec takes it unchanged.
+export const INHERIT_MODEL = 'inherit';
+
 // §6.2: the omp string `<provider>/<id>[:level]`.
 const MODEL_PATTERN = /^(?:(?<provider>[^/]*)\/)?(?<id>[^:]*)(?::(?<level>.*))?$/u;
 
@@ -32,7 +35,7 @@ export const parseModel = (text: string): ModelSetting => {
   if (provider !== undefined && provider !== 'anthropic') {
     return { kind: 'no_model', reason: `provider "${provider}" is not supported; only anthropic works now` };
   }
-  if (id === 'inherit') {
+  if (id === INHERIT_MODEL) {
     return { kind: 'inherit' };
   }
   if (id === '') {

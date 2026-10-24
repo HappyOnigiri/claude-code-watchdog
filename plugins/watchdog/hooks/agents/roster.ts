@@ -10,7 +10,7 @@ export type Watchdog = {
   readonly slug: string;
   // §4.2: `enabled: false` pauses the watchdog (state `disabled`).
   readonly isEnabled: boolean;
-  // §6.2: the model id for the agent spec; with `noModel`, the roster text as written.
+  // §6.2: the model id for the agent spec, or `inherit` for the session's; with `noModel`, the roster text as written.
   readonly model: string;
   readonly effort: EffortSetting;
   // §6.2: why the model cannot run (another provider, an unknown level); the watchdog is then `no_model`.

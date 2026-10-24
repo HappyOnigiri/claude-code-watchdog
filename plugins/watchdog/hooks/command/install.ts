@@ -1,4 +1,4 @@
-import { preflightProblem, preflightReject, preflightRequest } from '../agents/preflight';
+import { preflightModels, preflightProblem, preflightReject, preflightRequest } from '../agents/preflight';
 import { setRegisteredSpec } from '../agents/registered';
 import { setRoster } from '../agents/roster';
 import { agentSpec } from '../agents/spec';
@@ -79,7 +79,7 @@ const preflightAll = async (
   $: EngineInterface,
   models: readonly string[]
 ): Promise<Map<string, string | undefined>> => {
-  const distinct = [...new Set(models)];
+  const distinct = preflightModels(models);
   const problems = await Promise.all(
     distinct.map(async (model) =>
       $.model.complete(preflightRequest(model)).then(preflightProblem, preflightReject(model))
