@@ -1,5 +1,5 @@
 # The README demo. Run it from the repo root: vhs docs/assets/demo.tape
-# It needs vhs, a logged-in `claude` (2.1.290 or later) and costs a few cents of tokens: the session runs on
+# It needs vhs, a logged-in `claude` (2.1.299 or later) and costs a few cents of tokens: the session runs on
 # `haiku`, the default watchdog reviews on `opus`. The note the watchdog sends differs from run to run.
 # FontSize 14 keeps the band (its divider and count line, one row for each card, and the expanded note below its card)
 # readable beside the transcript.

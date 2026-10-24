@@ -1,4 +1,4 @@
-// The Desktop checks (spec §16.5 "Desktop, once Claude.app bundles 2.1.290 or later", plus the Desktop rows of
+// The Desktop checks (spec §16.5 "Desktop, once Claude.app bundles 2.1.299 or later", plus the Desktop rows of
 // §16.1). The probe cannot drive the desktop app, so each one is a manual step of the checklist in ../README.md.
 const manual = (id, title, source, steps) => ({
   id,
@@ -12,7 +12,7 @@ const manual = (id, title, source, steps) => ({
 export const scenarios = [];
 
 export const checks = [
-  manual('desktop-version', 'The bundled engine is 2.1.290 or later: /watchdog is not unsupported', '§16.3: Desktop', [
+  manual('desktop-version', 'The bundled engine is 2.1.299 or later: /watchdog is not unsupported', '§16.3: Desktop', [
     'Type /watchdog: it draws the status table, not unsupported.',
   ]),
   manual('desktop-attach', 'The session.attach desktop event drops a CLAUDE_WATCHDOG on state', '§16.5: Desktop', [

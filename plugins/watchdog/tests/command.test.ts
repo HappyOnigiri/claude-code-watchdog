@@ -21,15 +21,15 @@ const typed = (args: string): CommandRunInput => ({
 });
 
 describe('/watchdog command', () => {
-  test('below 2.1.290, /watchdog on replies that Claude Code needs an update', async ($, on) => {
-    startOn(on, '2.1.289');
+  test('below 2.1.299, /watchdog on replies that Claude Code needs an update', async ($, on) => {
+    startOn(on, '2.1.298');
     await $.session.start(START);
     const reply = await $.command.run(typed('on'));
-    expect(reply.text).toBe('needs Claude Code 2.1.290 or later; update the Claude app');
+    expect(reply.text).toBe('needs Claude Code 2.1.299 or later; update the Claude app');
   });
 
   test('a bare /watchdog and /watchdog status show the same short status', async ($, on) => {
-    startOn(on, '2.1.290');
+    startOn(on, '2.1.299');
     await $.session.start(START);
     const bare = await $.command.run(typed(''));
     const status = await $.command.run(typed('status'));
@@ -37,22 +37,22 @@ describe('/watchdog command', () => {
     expect(status.text).toBe('watchdog off');
   });
 
-  test('below 2.1.290, the status says unsupported and why', async ($, on) => {
-    startOn(on, '2.1.289');
+  test('below 2.1.299, the status says unsupported and why', async ($, on) => {
+    startOn(on, '2.1.298');
     await $.session.start(START);
     const status = await $.command.run(typed('status'));
-    expect(status.text).toBe('watchdog unsupported: needs Claude Code 2.1.290 or later; update the Claude app');
+    expect(status.text).toBe('watchdog unsupported: needs Claude Code 2.1.299 or later; update the Claude app');
   });
 
   test('an unknown subcommand replies with the usage', async ($, on) => {
-    startOn(on, '2.1.290');
+    startOn(on, '2.1.299');
     await $.session.start(START);
     const reply = await $.command.run(typed('of'));
     expect(reply.text).toBe('usage: /watchdog [on|off|status|dump [raw]]');
   });
 
   test('/watchdog on <prompt> takes no prompt: it replies with the usage and the session stays off (§3)', async ($, on) => {
-    startOn(on, '2.1.290');
+    startOn(on, '2.1.299');
     await $.session.start(START);
     const reply = await $.command.run(typed('on fix the parser'));
     expect(reply.text).toBe('usage: /watchdog [on|off|status|dump [raw]]');
@@ -65,7 +65,7 @@ describe('/watchdog registration', () => {
     const calls: string[] = [];
     on('session.version', () => {
       calls.push('session.version');
-      return { value: { version: '2.1.290', base: '2.1.290' } };
+      return { value: { version: '2.1.299', base: '2.1.299' } };
     });
     on('tool.register', (_$, e) => {
       calls.push(`tool.register ${e.name}`);
@@ -85,9 +85,9 @@ describe('/watchdog registration', () => {
     ]);
   });
 
-  test('below 2.1.290, session.start registers no note tool', async ($, on: Stubs) => {
+  test('below 2.1.299, session.start registers no note tool', async ($, on: Stubs) => {
     const tools: string[] = [];
-    on('session.version', () => ({ value: { version: '2.1.289', base: '2.1.289' } }));
+    on('session.version', () => ({ value: { version: '2.1.298', base: '2.1.298' } }));
     on('tool.register', (_$, e) => {
       tools.push(e.name);
       return { value: { tool: `mcp__watchdog__${e.name}` } };
@@ -100,7 +100,7 @@ describe('/watchdog registration', () => {
 
   test('a register error writes one log row and the hook still ends', async ($, on: Stubs) => {
     const rows: string[] = [];
-    on('session.version', () => ({ value: { version: '2.1.290', base: '2.1.290' } }));
+    on('session.version', () => ({ value: { version: '2.1.299', base: '2.1.299' } }));
     on('tool.register', (_$, e) => ({ value: { tool: `mcp__watchdog__${e.name}` } }));
     on('command.register', () => ({ deny: 'the name watchdog belongs to another plugin' }));
     on('ui.log', (_$, e) => {
