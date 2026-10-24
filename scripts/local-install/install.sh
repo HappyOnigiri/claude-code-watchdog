@@ -18,6 +18,10 @@ claude plugin marketplace update happyonigiri-plugins
 # `update` skips a build whose version did not change, so the plugin goes in again. `uninstall` drops the options
 # set in /config, so they are read before it and saved again after the install.
 options=$(node scripts/local-install/options.mjs "$config/settings.json" "$plugin")
+if [ "$options" != "{}" ]; then
+  echo "Saved options of $plugin. If a step below fails, set them again with:" >&2
+  echo "  echo '$options' | claude plugin configure --values-stdin $plugin" >&2
+fi
 if claude plugin list | grep -q "$plugin\$"; then
   claude plugin uninstall --keep-data "$plugin"
 fi
