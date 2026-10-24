@@ -120,7 +120,7 @@ Rules:
 
 Claude Code offers a plugin update only when the `version` in `plugins/watchdog/.claude-plugin/plugin.json` changes; new commits alone show "already at the latest version". Raise the version in the commit that changes how the plugin behaves: code, prompts, agents, commands or hooks under `plugins/watchdog/`. A change to metadata text only, such as the `description`, does not need a new version. It reaches users with the next release.
 
-Add the version's section to `CHANGELOG.md` in the same change. When CI passes on that commit, tag it `vX.Y.Z`, push the tag, and run `gh release create vX.Y.Z` with the changelog section as the notes.
+Add the version's section to `CHANGELOG.md` in the same change, headed `## X.Y.Z - YYYY-MM-DD`. When `ci` passes on a push to main, the `release` workflow tags the commit `vX.Y.Z` and creates the GitHub release with that section as the notes. It skips a version that already has its tag, and fails when the section is missing.
 
 ## Lint traps
 
