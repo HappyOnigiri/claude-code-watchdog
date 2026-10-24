@@ -1,7 +1,17 @@
 import { describe, expect, test } from 'claude-code/testing';
 import { LOG_NOTICE_ROW } from './fixtures/engine/log-notice';
 import { noticeRow, withText } from './fixtures/recorded';
-import { REVIEW_AGENT, SESSION_ID, START, USAGE, mainRow, stubSession, turnEnd, typed } from './fixtures/session';
+import {
+  REVIEW_AGENT,
+  SESSION_ID,
+  START,
+  USAGE,
+  mainRow,
+  stubSession,
+  turnEnd,
+  typed,
+  SHOW_NUDGED,
+} from './fixtures/session';
 import type { SessionStubs } from './fixtures/session';
 import type { AgentSpawnInput, ApiMessage, SessionAppendInput, TurnStepInput } from 'claude-code';
 import type { Engine } from 'claude-code/testing';
@@ -166,26 +176,35 @@ describe('one review at a time, and no self-review', () => {
     expect(prompt).not.toMatch(/WATCHDOG READS|watchdog-notes|task-notification/u);
   });
 
-  test("the engine's notice echo of the mod's own log row stays out of the next review (l3-self-review-log-rows)", async ($, on: SessionStubs) => {
-    const seen = stubSession(on);
-    await startOn($);
-    await append($, mainRow('u1', 'user', 'First task.'));
-    await $.turn.complete(turnEnd('t1'));
-    await $.agent.spawn(SPAWN);
-    await $.tool.call({ tool: 'mcp__watchdog__note', agentId: REVIEW_AGENT, note: 'Check null.', severity: 'concern' });
-    await $.turn.complete(reviewEnd);
-    expect(seen.logs).toEqual(['[concern] default: Check null. (nudge pending)']);
-    // The engine's echo of that row, and another plugin's log row, in the recorded notice shape.
-    await append($, noticeRow('n1', seen.logs[0] ?? ''));
-    await append($, withText(LOG_NOTICE_ROW, 'n2', 'linter: 0 problems'));
-    await append($, mainRow('u2', 'user', 'Second task.'));
-    await $.turn.complete(turnEnd('t2'));
+  test(
+    "the engine's notice echo of the mod's own log row stays out of the next review (l3-self-review-log-rows)",
+    SHOW_NUDGED,
+    async ($, on: SessionStubs) => {
+      const seen = stubSession(on);
+      await startOn($);
+      await append($, mainRow('u1', 'user', 'First task.'));
+      await $.turn.complete(turnEnd('t1'));
+      await $.agent.spawn(SPAWN);
+      await $.tool.call({
+        tool: 'mcp__watchdog__note',
+        agentId: REVIEW_AGENT,
+        note: 'Check null.',
+        severity: 'concern',
+      });
+      await $.turn.complete(reviewEnd);
+      expect(seen.logs).toEqual(['[concern] default: Check null. (nudge pending)']);
+      // The engine's echo of that row, and another plugin's log row, in the recorded notice shape.
+      await append($, noticeRow('n1', seen.logs[0] ?? ''));
+      await append($, withText(LOG_NOTICE_ROW, 'n2', 'linter: 0 problems'));
+      await append($, mainRow('u2', 'user', 'Second task.'));
+      await $.turn.complete(turnEnd('t2'));
 
-    const prompt = seen.spawns.at(-1)?.prompt ?? '';
-    expect(prompt).toContain('Second task.');
-    expect(prompt).toContain('[notice informational] linter: 0 problems');
-    expect(prompt).not.toContain('watchdog: [concern] default: Check null.');
-  });
+      const prompt = seen.spawns.at(-1)?.prompt ?? '';
+      expect(prompt).toContain('Second task.');
+      expect(prompt).toContain('[notice informational] linter: 0 problems');
+      expect(prompt).not.toContain('watchdog: [concern] default: Check null.');
+    }
+  );
 });
 
 const callRow = (id: string, name: string, input: unknown): SessionAppendInput => ({

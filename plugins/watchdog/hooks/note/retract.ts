@@ -31,7 +31,7 @@ const NOT_YOURS = "Refused: this note is another watchdog's.";
 const BAD_ARGUMENTS = 'A retraction needs the `id` of an open note and a `reason`.';
 
 // §10.8: one open note: its id, its card key (§9.1), the review agent that sent it, its batch, and its entry in the
-// held list (none for a delivered note whose card still shows).
+// held list (none for a delivered note whose card still shows), and the delivery state it has now.
 export type OpenNote = {
   readonly id: string;
   readonly key: string;
@@ -39,6 +39,7 @@ export type OpenNote = {
   readonly agentId: string;
   readonly severity: Severity;
   readonly text: string;
+  readonly delivery: string;
   readonly batchEdits: number | null;
   readonly subagent?: SubagentRef;
   readonly held?: HeldNote;
@@ -57,6 +58,7 @@ const openCard = (card: Card): OpenNote => ({
   agentId: card.agentId,
   severity: card.severity,
   text: card.text,
+  delivery: card.delivery,
   batchEdits: card.batchEdits,
   ...(card.subagentId === undefined ? {} : { subagent: { agentId: card.subagentId, type: card.subagent ?? '' } }),
 });
@@ -70,6 +72,7 @@ const openNotes = (): OpenNote[] => {
     agentId: note.agentId,
     severity: note.severity,
     text: note.text,
+    delivery: note.delivery,
     batchEdits: note.batchEdits,
     subagent: note.subagent,
     held: note,

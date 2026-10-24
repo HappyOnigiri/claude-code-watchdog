@@ -5,7 +5,7 @@ import { noteId } from '../hooks/note/retract';
 import { bandTarget, stubEngineBand } from './fixtures/band';
 import { PERSON_PROMPT, REVIEW_SPAWN, nudgeTurnText, stubDelivery, wrapped } from './fixtures/delivery';
 import { stateIn, stubState } from './fixtures/on-state';
-import { SESSION_ID, START, USAGE, mainRow, reviewAgentId, turnEnd, typed } from './fixtures/session';
+import { SESSION_ID, START, USAGE, mainRow, reviewAgentId, turnEnd, typed, SHOW_NUDGED } from './fixtures/session';
 import type { Band } from '../hooks/band/cards';
 import type { Feed } from '../hooks/feed/feed';
 import type { LogRecord } from '../hooks/log/log';
@@ -134,7 +134,7 @@ const theRace = async ($: Engine): Promise<string> => {
 };
 
 describe('§10.8 the outdated mark', () => {
-  test('each note after an edit is marked, whatever it names, and never dropped', async ($, on: Stubs) => {
+  test('each note after an edit is marked, whatever it names, and never dropped', SHOW_NUDGED, async ($, on: Stubs) => {
     const { seen, state } = setUp(on);
     const first = await theRace($);
 
@@ -208,49 +208,89 @@ describe('§10.8 the outdated mark', () => {
 });
 
 describe('§10.8 a retraction', () => {
-  test('the recap lists each open note with its id and mark; a retraction drops the held note: list, card, row, dump', async ($, on: Stubs) => {
-    const { seen, state } = setUp(on);
-    const first = await theRace($);
-    await reviewEnd($, first);
-    const blockerId = noteId(cardKey({ watchdog: 'default', text: BLOCKER }));
-    expect(seen.spawns.at(-1)?.prompt).toContain(
-      [
-        `- [concern · open ${noteId(cardKey({ watchdog: 'default', text: OTHER }))} · may be outdated: 1 edit since] ${OTHER} (nudge pending)`,
-        `- [blocker · open ${blockerId} · may be outdated: 1 edit since] ${BLOCKER} (nudge pending)`,
-      ].join('\n')
-    );
-    const second = await learnReview($, 2);
-    const rows = seen.logs.length;
-    expect(await countLine($)).toMatch(/^watchdog · 1 blocker · 1 concern +ctrl\+x tab · a\/b · esc$/u);
+  test(
+    'the recap lists each open note with its id and mark; a retraction drops the held note: list, card, row, dump',
+    SHOW_NUDGED,
+    async ($, on: Stubs) => {
+      const { seen, state } = setUp(on);
+      const first = await theRace($);
+      await reviewEnd($, first);
+      const blockerId = noteId(cardKey({ watchdog: 'default', text: BLOCKER }));
+      expect(seen.spawns.at(-1)?.prompt).toContain(
+        [
+          `- [concern · open ${noteId(cardKey({ watchdog: 'default', text: OTHER }))} · may be outdated: 1 edit since] ${OTHER} (nudge pending)`,
+          `- [blocker · open ${blockerId} · may be outdated: 1 edit since] ${BLOCKER} (nudge pending)`,
+        ].join('\n')
+      );
+      const second = await learnReview($, 2);
+      const rows = seen.logs.length;
+      expect(await countLine($)).toMatch(/^watchdog · 1 blocker · 1 concern +ctrl\+x tab · a\/b · esc$/u);
 
-    expect(await resolve($, second, { id: blockerId, reason: REASON })).toEqual({ result: 'Retracted.' });
-    expect(seen.logs.slice(rows)).toEqual([`[blocker] default: ${BLOCKER} (dropped:superseded)`]);
-    expect(cards(state).map((card) => card.text)).toEqual([OTHER]);
-    expect(await countLine($)).toMatch(/^watchdog · 1 concern +ctrl\+x tab · a · esc$/u);
-    const records = state.logWrites.at(-1) as readonly LogRecord[];
-    const sent = records.find((record) => record.kind === 'review' && record.agentId === first);
-    expect(sent?.kind === 'review' ? sent.notes : []).toEqual([
-      { severity: 'blocker', text: BLOCKER, delivery: 'dropped:superseded', reason: REASON },
-      { severity: 'concern', text: OTHER, delivery: 'steered' },
-    ]);
-    // §7.7, §9.6: the recap says `dropped:superseded`, and the key leaves the guard keys.
-    const history = seen.store.get(`notes:${SESSION_ID}`) as NoteHistory;
-    expect(history.watchdogs.default?.notes.map(({ text, delivery }) => ({ text, delivery }))).toEqual([
-      { text: BLOCKER, delivery: 'dropped:superseded' },
-      { text: OTHER, delivery: 'nudge pending' },
-    ]);
-    expect(history.watchdogs.default?.keys.map((entry) => entry.key)).toEqual([normalizeNote(OTHER)]);
-    expect(await resolve($, second, { id: blockerId, reason: REASON })).toEqual({
-      result: 'Refused: no open note has this id.',
-    });
+      expect(await resolve($, second, { id: blockerId, reason: REASON })).toEqual({ result: 'Retracted.' });
+      expect(seen.logs.slice(rows)).toEqual([`[blocker] default: ${BLOCKER} (dropped:superseded)`]);
+      expect(cards(state).map((card) => card.text)).toEqual([OTHER]);
+      expect(await countLine($)).toMatch(/^watchdog · 1 concern +ctrl\+x tab · a · esc$/u);
+      const records = state.logWrites.at(-1) as readonly LogRecord[];
+      const sent = records.find((record) => record.kind === 'review' && record.agentId === first);
+      expect(sent?.kind === 'review' ? sent.notes : []).toEqual([
+        { severity: 'blocker', text: BLOCKER, delivery: 'dropped:superseded', reason: REASON },
+        { severity: 'concern', text: OTHER, delivery: 'steered' },
+      ]);
+      // §7.7, §9.6: the recap says `dropped:superseded`, and the key leaves the guard keys.
+      const history = seen.store.get(`notes:${SESSION_ID}`) as NoteHistory;
+      expect(history.watchdogs.default?.notes.map(({ text, delivery }) => ({ text, delivery }))).toEqual([
+        { text: BLOCKER, delivery: 'dropped:superseded' },
+        { text: OTHER, delivery: 'nudge pending' },
+      ]);
+      expect(history.watchdogs.default?.keys.map((entry) => entry.key)).toEqual([normalizeNote(OTHER)]);
+      expect(await resolve($, second, { id: blockerId, reason: REASON })).toEqual({
+        result: 'Refused: no open note has this id.',
+      });
 
-    await seen.clock.advance(2000);
-    expect(nudges(seen)).toHaveLength(1);
-    expect(nudges(seen)[0]).not.toContain(BLOCKER);
-    expect(nudges(seen)[0]).toContain(OTHER);
-  });
+      await seen.clock.advance(2000);
+      expect(nudges(seen)).toHaveLength(1);
+      expect(nudges(seen)[0]).not.toContain(BLOCKER);
+      expect(nudges(seen)[0]).toContain(OTHER);
+    }
+  );
 
-  test('a delivered note on the band: the retraction removes its card and writes one row', async ($, on: Stubs) => {
+  test(
+    'a delivered note on the band: the retraction removes its card and writes one row',
+    SHOW_NUDGED,
+    async ($, on: Stubs) => {
+      const { seen, state } = setUp(on);
+      await $.session.start(START);
+      await $.command.run(typed('on'));
+      await personTurn($, 't1', [mainRow('u1', 'user', 'Add cart_total.'), mainRow('a1', 'assistant', 'Done.')]);
+      await $.turn.complete(turnEnd('t1'));
+      const first = await learnReview($, 1);
+      await personTurn($, 't2', [mainRow('u2', 'user', 'Add a test.'), mainRow('a2', 'assistant', 'Added.')]);
+      await $.turn.complete(turnEnd('t2'));
+      await note($, first, THE_BLOCKER);
+      await reviewEnd($, first);
+      const second = await learnReview($, 2);
+
+      // The nudge sends the note; its card stays as `nudged` until the next person prompt.
+      await seen.clock.advance(2000);
+      await $.turn.start({ text: nudgeTurnText(nudges(seen).at(-1) ?? ''), turnId: 't3' });
+      await append($, editRow('e1', CART));
+      await $.tool.call({ tool: 'Edit', file_path: CART, old_string: 'a', new_string: 'b' });
+      expect(cards(state).map(({ delivery, edits }) => ({ delivery, edits }))).toEqual([
+        { delivery: 'nudged', edits: 1 },
+      ]);
+      await $.turn.complete(turnEnd('t3'));
+      const rows = seen.logs.length;
+
+      const id = noteId(cardKey({ watchdog: 'default', text: BLOCKER }));
+      expect(await resolve($, second, { id, reason: REASON })).toEqual({ result: 'Retracted.' });
+      expect(cards(state)).toEqual([]);
+      expect(seen.logs.slice(rows)).toEqual([`[blocker] default: ${BLOCKER} (dropped:superseded)`]);
+      await reviewEnd($, second);
+      expect(seen.spawns.at(-1)?.prompt).toContain(`- [blocker] ${BLOCKER} (dropped:superseded)`);
+    }
+  );
+
+  test('by default a nudged note draws no card, and its retraction writes no row', async ($, on: Stubs) => {
     const { seen, state } = setUp(on);
     await $.session.start(START);
     await $.command.run(typed('on'));
@@ -263,7 +303,7 @@ describe('§10.8 a retraction', () => {
     await reviewEnd($, first);
     const second = await learnReview($, 2);
 
-    // The nudge sends the note; its card stays as `nudged` until the next person prompt.
+    // The band keeps the card as `nudged`, so the note stays open for the retraction; the band draws none.
     await seen.clock.advance(2000);
     await $.turn.start({ text: nudgeTurnText(nudges(seen).at(-1) ?? ''), turnId: 't3' });
     await append($, editRow('e1', CART));
@@ -277,7 +317,7 @@ describe('§10.8 a retraction', () => {
     const id = noteId(cardKey({ watchdog: 'default', text: BLOCKER }));
     expect(await resolve($, second, { id, reason: REASON })).toEqual({ result: 'Retracted.' });
     expect(cards(state)).toEqual([]);
-    expect(seen.logs.slice(rows)).toEqual([`[blocker] default: ${BLOCKER} (dropped:superseded)`]);
+    expect(seen.logs.slice(rows)).toEqual([]);
     await reviewEnd($, second);
     expect(seen.spawns.at(-1)?.prompt).toContain(`- [blocker] ${BLOCKER} (dropped:superseded)`);
   });

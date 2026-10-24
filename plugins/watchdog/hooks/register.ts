@@ -22,7 +22,7 @@ import type { Register } from 'claude-code';
 
 export const register: Register = (on, options) => {
   installStore(on);
-  installBand(on);
+  installBand(on, options);
   installSession(on);
   installRewind(on);
   installRoster(on);

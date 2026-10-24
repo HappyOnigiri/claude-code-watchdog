@@ -9,6 +9,7 @@ import {
   stubSession,
   turnEnd,
   typed,
+  SHOW_NUDGED,
 } from './fixtures/session';
 import type { OnEvents } from '../hooks/on';
 import type { SessionEvents } from './fixtures/session';
@@ -65,38 +66,42 @@ describe('the roster model of a review spawn (§12.2, §16.2)', () => {
 });
 
 describe('two reviews at once (§7.5)', () => {
-  test('each watchdog reviews with its own agent; a note goes to its own watchdog, an end frees only its own slot', async ($, on: Stubs) => {
-    stubAfterAtOnce(on);
-    const seen = stubSession(on, {
-      files: { [PROJECT_FILE]: { text: JSON.stringify({ watchdogs: [{ name: 'a' }, { name: 'b' }] }), mtimeMs: 1 } },
-      isReviewIdPerSpawn: true,
-    });
-    await firstUpdate($);
-    expect(seen.spawns.map((spawn) => spawn.subagentType)).toEqual(['watchdog:a', 'watchdog:b']);
+  test(
+    'each watchdog reviews with its own agent; a note goes to its own watchdog, an end frees only its own slot',
+    SHOW_NUDGED,
+    async ($, on: Stubs) => {
+      stubAfterAtOnce(on);
+      const seen = stubSession(on, {
+        files: { [PROJECT_FILE]: { text: JSON.stringify({ watchdogs: [{ name: 'a' }, { name: 'b' }] }), mtimeMs: 1 } },
+        isReviewIdPerSpawn: true,
+      });
+      await firstUpdate($);
+      expect(seen.spawns.map((spawn) => spawn.subagentType)).toEqual(['watchdog:a', 'watchdog:b']);
 
-    await $.agent.spawn(spawnOf('a', TOOL_USE_A));
-    await $.agent.spawn(spawnOf('b', TOOL_USE_B));
-    const [agentA, agentB] = [reviewAgentId(TOOL_USE_A), reviewAgentId(TOOL_USE_B)];
-    expect(await watchdogLines($)).toEqual(['a reviewing · ./WATCHDOG.json', 'b reviewing · ./WATCHDOG.json']);
+      await $.agent.spawn(spawnOf('a', TOOL_USE_A));
+      await $.agent.spawn(spawnOf('b', TOOL_USE_B));
+      const [agentA, agentB] = [reviewAgentId(TOOL_USE_A), reviewAgentId(TOOL_USE_B)];
+      expect(await watchdogLines($)).toEqual(['a reviewing · ./WATCHDOG.json', 'b reviewing · ./WATCHDOG.json']);
 
-    await $.tool.call({
-      tool: 'mcp__watchdog__note',
-      agentId: agentB,
-      note: 'The lexer drops tabs.',
-      severity: 'concern',
-    });
-    expect(seen.logs.at(-1)).toBe('[concern] b: The lexer drops tabs. (nudge pending)');
-    await $.tool.call({
-      tool: 'mcp__watchdog__note',
-      agentId: agentA,
-      note: 'parseDate drops the zone.',
-      severity: 'nit',
-    });
-    expect(seen.logs.at(-1)).toBe('[nit] a: parseDate drops the zone. (aside on next prompt)');
+      await $.tool.call({
+        tool: 'mcp__watchdog__note',
+        agentId: agentB,
+        note: 'The lexer drops tabs.',
+        severity: 'concern',
+      });
+      expect(seen.logs.at(-1)).toBe('[concern] b: The lexer drops tabs. (nudge pending)');
+      await $.tool.call({
+        tool: 'mcp__watchdog__note',
+        agentId: agentA,
+        note: 'parseDate drops the zone.',
+        severity: 'nit',
+      });
+      expect(seen.logs.at(-1)).toBe('[nit] a: parseDate drops the zone. (aside on next prompt)');
 
-    await $.turn.complete({ ...turnEnd('rb'), agentId: agentB, usage: USAGE });
-    expect(await watchdogLines($)).toEqual(['a reviewing · ./WATCHDOG.json', 'b idle · ./WATCHDOG.json']);
-    await $.turn.complete({ ...turnEnd('ra'), agentId: agentA, usage: USAGE });
-    expect(await watchdogLines($)).toEqual(['a idle · ./WATCHDOG.json', 'b idle · ./WATCHDOG.json']);
-  });
+      await $.turn.complete({ ...turnEnd('rb'), agentId: agentB, usage: USAGE });
+      expect(await watchdogLines($)).toEqual(['a reviewing · ./WATCHDOG.json', 'b idle · ./WATCHDOG.json']);
+      await $.turn.complete({ ...turnEnd('ra'), agentId: agentA, usage: USAGE });
+      expect(await watchdogLines($)).toEqual(['a idle · ./WATCHDOG.json', 'b idle · ./WATCHDOG.json']);
+    }
+  );
 });

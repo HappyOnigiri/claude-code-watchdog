@@ -1,6 +1,16 @@
 import { describe, expect, test } from 'claude-code/testing';
 import { readHistory, watchdogNotes } from '../hooks/note/history';
-import { NOW, REVIEW_AGENT, SESSION_ID, START, mainRow, stubSession, turnEnd, typed } from './fixtures/session';
+import {
+  NOW,
+  REVIEW_AGENT,
+  SESSION_ID,
+  START,
+  mainRow,
+  stubSession,
+  turnEnd,
+  typed,
+  SHOW_NUDGED,
+} from './fixtures/session';
 import type { SessionStubs } from './fixtures/session';
 import type { AgentSpawnInput } from 'claude-code';
 import type { Engine } from 'claude-code/testing';
@@ -34,38 +44,44 @@ const note = async ($: Engine, text: string, severity: string) =>
   $.tool.call({ tool: NOTE, agentId: REVIEW_AGENT, note: text, severity });
 
 describe('the note hook: destructive check, emission guard and note history', () => {
-  test('one review after the turn: unsafe drop, admission, duplicate, a waiting nit raised in place to a late concern, noise; the history is stored', async ($, on: SessionStubs) => {
-    const seen = stubSession(on);
-    await reviewOf($, 'Speed up the build.');
-    const logsBefore = seen.logs.length;
+  test(
+    'one review after the turn: unsafe drop, admission, duplicate, a waiting nit raised in place to a late concern, noise; the history is stored',
+    SHOW_NUDGED,
+    async ($, on: SessionStubs) => {
+      const seen = stubSession(on);
+      await reviewOf($, 'Speed up the build.');
+      const logsBefore = seen.logs.length;
 
-    expect(await note($, 'Run rm -rf build/ before the next try.', 'concern')).toEqual({
-      result: 'Dropped: unsafe note.',
-    });
-    expect(seen.store.has(STORE_KEY)).toBe(false);
-    expect(await note($, 'Missing null check in parse().', 'nit')).toEqual({ result: 'Queued. Do not re-raise.' });
-    expect(await note($, 'missing null check in PARSE', 'nit')).toEqual({ result: 'Dropped: already raised.' });
-    expect(await note($, 'Missing null check in parse()!', 'concern')).toEqual({ result: 'Queued. Do not re-raise.' });
-    expect(await note($, 'LGTM.', 'nit')).toEqual({ result: 'Dropped: nothing actionable.' });
-    expect(await note($, '  ', 'blocker')).toEqual({ result: 'Dropped: empty note.' });
+      expect(await note($, 'Run rm -rf build/ before the next try.', 'concern')).toEqual({
+        result: 'Dropped: unsafe note.',
+      });
+      expect(seen.store.has(STORE_KEY)).toBe(false);
+      expect(await note($, 'Missing null check in parse().', 'nit')).toEqual({ result: 'Queued. Do not re-raise.' });
+      expect(await note($, 'missing null check in PARSE', 'nit')).toEqual({ result: 'Dropped: already raised.' });
+      expect(await note($, 'Missing null check in parse()!', 'concern')).toEqual({
+        result: 'Queued. Do not re-raise.',
+      });
+      expect(await note($, 'LGTM.', 'nit')).toEqual({ result: 'Dropped: nothing actionable.' });
+      expect(await note($, '  ', 'blocker')).toEqual({ result: 'Dropped: empty note.' });
 
-    expect(seen.logs.slice(logsBefore)).toEqual([
-      UNSAFE_ROW,
-      '[nit] default: Missing null check in parse(). (aside on next prompt)',
-      '[concern] default: Missing null check in parse(). (nudge pending)',
-    ]);
-    expect(seen.store.get(STORE_KEY)).toEqual({
-      watchdogs: {
-        default: {
-          keys: [{ key: 'missing null check in parse', severity: 'concern' }],
-          notes: [{ text: 'Missing null check in parse().', severity: 'concern', delivery: 'nudge pending' }],
+      expect(seen.logs.slice(logsBefore)).toEqual([
+        UNSAFE_ROW,
+        '[nit] default: Missing null check in parse(). (aside on next prompt)',
+        '[concern] default: Missing null check in parse(). (nudge pending)',
+      ]);
+      expect(seen.store.get(STORE_KEY)).toEqual({
+        watchdogs: {
+          default: {
+            keys: [{ key: 'missing null check in parse', severity: 'concern' }],
+            notes: [{ text: 'Missing null check in parse().', severity: 'concern', delivery: 'nudge pending' }],
+          },
         },
-      },
-      lastUsed: NOW,
-    });
-  });
+        lastUsed: NOW,
+      });
+    }
+  );
 
-  test('a destructive command that the batch holds too passes the check', async ($, on: SessionStubs) => {
+  test('a destructive command that the batch holds too passes the check', SHOW_NUDGED, async ($, on: SessionStubs) => {
     const seen = stubSession(on);
     await reviewOf($, 'Clean with rm -rf dist, then rebuild.');
     const logsBefore = seen.logs.length;
