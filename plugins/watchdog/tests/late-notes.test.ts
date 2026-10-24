@@ -13,6 +13,7 @@ const IDLE: Routing = {
   nudgeTurn: null,
   immuneTurns: 3,
   isHeadless: false,
+  isNitNudged: false,
 };
 
 describe('the person prompt set', () => {
@@ -36,6 +37,14 @@ describe('the route of an admitted note', () => {
   test('a nit waits for the next person prompt, also while a turn runs', () => {
     expect(routeNote('nit', IDLE)).toBe('aside on next prompt');
     expect(routeNote('nit', { ...IDLE, isTurnRunning: true })).toBe('aside on next prompt');
+  });
+
+  test('with nudgeNits a nit routes as a concern', () => {
+    const nudged = { ...IDLE, isNitNudged: true };
+    expect(routeNote('nit', { ...nudged, isTurnRunning: true })).toBe('steered');
+    expect(routeNote('nit', nudged)).toBe('nudge pending');
+    expect(routeNote('nit', { ...nudged, nudges: 1 })).toBe('held');
+    expect(routeNote('nit', { ...nudged, isHeadless: true })).toBe('aside on next prompt');
   });
 
   test('a concern or a blocker while a main turn runs waits for the next tool result', () => {

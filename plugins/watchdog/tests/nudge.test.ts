@@ -21,6 +21,7 @@ import {
   stubSession,
   turnEnd,
   typed,
+  NUDGE_NITS,
   SHOW_NUDGED,
 } from './fixtures/session';
 import type { OnEvents } from '../hooks/on';
@@ -31,6 +32,7 @@ import type { Engine } from 'claude-code/testing';
 
 const CONCERN = 'parseDate drops the timezone';
 const BLOCKER = 'The migration deletes the users table';
+const NIT = 'formatDate has an unused parameter';
 
 const personTurn = async ($: Engine, turnId: string): Promise<void> => {
   await $.prompt.submit(PERSON_PROMPT);
@@ -109,6 +111,41 @@ describe('late note and nudge', () => {
       expect(nudges(seen)).toEqual([wrapped(`<note severity="concern">${CONCERN}</note>`)]);
     }
   );
+
+  test('with nudgeNits a late nit starts a nudge on the concern budget', NUDGE_NITS, async ($, on: DeliveryStubs) => {
+    const seen = stubDelivery(on);
+    await startReview($);
+    await personTurn($, 't1');
+    await $.turn.complete(turnEnd('t1'));
+    await sendNote($, 'nit', NIT);
+    expect(seen.logs.at(-1)).toBe(`[nit] default: ${NIT} (nudge pending)`);
+
+    await reviewEnd($);
+    await seen.clock.advance(2000);
+    expect(nudges(seen)).toEqual([wrapped(`<note severity="nit">${NIT}</note>`)]);
+    expect(await statusHead($)).toContain('nudge 1/1');
+  });
+
+  test('with nudgeNits a nit steers while a main turn runs', NUDGE_NITS, async ($, on: DeliveryStubs) => {
+    const seen = stubDelivery(on);
+    await startReview($);
+    await personTurn($, 't1');
+    await sendNote($, 'nit', NIT);
+    expect(seen.logs.at(-1)).toBe(`[nit] default: ${NIT} (steered)`);
+  });
+
+  test('without nudgeNits a late nit starts no nudge', SHOW_NUDGED, async ($, on: DeliveryStubs) => {
+    const seen = stubDelivery(on);
+    await startReview($);
+    await personTurn($, 't1');
+    await $.turn.complete(turnEnd('t1'));
+    await sendNote($, 'nit', NIT);
+    expect(seen.logs.at(-1)).toBe(`[nit] default: ${NIT} (aside on next prompt)`);
+
+    await reviewEnd($);
+    await seen.clock.advance(2000);
+    expect(nudges(seen)).toEqual([]);
+  });
 
   test('a review that starts in the 2 s wait does not end it', async ($, on: DeliveryStubs) => {
     const seen = stubDelivery(on);

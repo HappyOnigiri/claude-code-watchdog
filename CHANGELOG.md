@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0 - 2026-10-25
+
+- The new setting `nudgeNits` (default `false`) sends a nit the way a concern goes: after Claude's next tool result
+  while it works, or by a nudge after its reply. A nudge of nits takes the concern budget and waits out the same
+  cooldown. Off, a nit still waits for your next prompt.
+
 ## 0.4.0 - 2026-10-25
 
 - The new setting `hideEmptyBand` (default `false`) hides the band above the prompt box while it has no open note:
