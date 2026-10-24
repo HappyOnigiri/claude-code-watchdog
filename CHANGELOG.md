@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3 - 2026-10-24
+
+- A review now sees a tool argument that spans lines, such as a Bash heredoc or the content of a Write, as lines in
+  a code block under the call, named by the argument. Before, it sat in the call's one-line JSON with each line break
+  shown as `\n`.
+
 ## 0.2.2 - 2026-10-24
 
 - Needs Claude Code 2.1.299 or later; below it the plugin shows `unsupported`. The band and the `/watchdog status`

@@ -84,6 +84,33 @@ describe('update rendering (omp formatSessionHistoryMarkdown, watched roles)', (
     expect(text).toContain('→ Read(/repo/b.ts) ⇒ pending');
   });
 
+  test('a string argument with a line break shows fenced under the call line, named by its fence', () => {
+    const command = "git add -p a.ts <<'EOF'\nn\ny\nEOF\ngit diff --cached --stat";
+    const text = textOf([
+      call('toolu_1', 'Bash', { command, description: 'Stage a hunk', timeout: 600_000 }),
+      result('toolu_1', 'a.ts | 2 +-', { tool: 'Bash' }),
+    ]);
+    expect(text).toBe(
+      [
+        '**agent**:',
+        '→ Bash({"description":"Stage a hunk","timeout":600000}) ⇒ ok · 1 line',
+        '```command',
+        command,
+        '```',
+        'Tool result:',
+        '```text',
+        'a.ts | 2 +-',
+        '```',
+      ].join('\n')
+    );
+  });
+
+  test('a fenced argument with a backtick run gets a longer fence; a pending call keeps its status on line one', () => {
+    const body = "cat <<'EOF'\n```ts\nx\n```\nEOF";
+    const text = textOf([call('toolu_1', 'Bash', { command: body })]);
+    expect(text).toBe(`**agent**:\n→ Bash({}) ⇒ pending\n\`\`\`\`command\n${body}\n\`\`\`\``);
+  });
+
   test('`AskUserQuestion` shows its input under `Ask input:`, and the answer is never cut', () => {
     const questions = [{ question: 'Which parser?', header: 'Parser', options: [{ label: 'date-fns' }] }];
     const answer = `User has answered your questions: "Which parser?"="${'mine '.repeat(1000)}"`;
@@ -193,6 +220,21 @@ describe('update caps', () => {
     expect(head).toContain('[… ');
     expect(head).toContain(' chars elided …]');
     expect(head.length).toBeLessThan(8000 + 100);
+  });
+
+  test('a tool input keeps 8,000 chars across its call line and its fenced arguments', () => {
+    const content = 'x\n'.repeat(5000);
+    const text = textOf([call('toolu_1', 'Write', { file_path: '/repo/a.ts', content, old: content })]);
+    // The call line's 26 chars leave 7,974 for `content`; nothing is left for `old`.
+    const kept = `${content.slice(0, 3987)}[… 2026 chars elided …]${content.slice(-3987)}`;
+    expect(text).toBe(
+      [
+        '**agent**:',
+        '→ Write({"file_path":"/repo/a.ts"}) ⇒ pending',
+        `\`\`\`content\n${kept}\n\`\`\``,
+        '```old\n[… 10000 chars elided …]\n```',
+      ].join('\n')
+    );
   });
 
   test('`thinking` keeps 8,000 chars', () => {

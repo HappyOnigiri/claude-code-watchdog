@@ -41,13 +41,39 @@ const ASK_TOOL = 'AskUserQuestion';
 
 const PENDING = ' ⇒ pending';
 
-// §7.6: the full tool input on the call line, at most 8,000 chars: a lone one-line string bare (omp's
-// `→ Read(path)`), else compact JSON.
-const inputText = (input: unknown): string => {
+type InputText = { readonly line: string; readonly blocks: readonly string[] };
+
+const hasLineBreak = (value: unknown): value is string => typeof value === 'string' && value.includes('\n');
+
+// The fenced arguments under the call line, each named by its fence's language; they share the `left` chars.
+const blocksOf = (args: readonly (readonly [string, string])[], left: number): string[] =>
+  args.reduce<{ left: number; blocks: string[] }>(
+    (shown, [name, value]) => {
+      const text = elide(value, Math.max(0, shown.left));
+      return { left: shown.left - text.length, blocks: [...shown.blocks, fenced(text, oneLine(name))] };
+    },
+    { left, blocks: [] }
+  ).blocks;
+
+// §7.6: the full tool input, at most 8,000 chars in all: a lone one-line string bare on the call line (omp's
+// `→ Read(path)`), else compact JSON. [INFERENCE] A string argument with a line break leaves the JSON and
+// shows fenced under the call line, so a heredoc reads as lines and not as `\n`.
+const inputText = (input: unknown): InputText => {
   const values = isToolInput(input) ? Object.values(input) : [];
   const [only] = values;
-  const isBare = values.length === 1 && typeof only === 'string' && !only.includes('\n');
-  return elide(isBare ? only : JSON.stringify(input ?? {}), TOOL_INPUT_CAP);
+  if (values.length === 1 && typeof only === 'string' && !only.includes('\n')) {
+    return { line: elide(only, TOOL_INPUT_CAP), blocks: [] };
+  }
+  if (!isToolInput(input)) {
+    return { line: elide(JSON.stringify(input ?? {}), TOOL_INPUT_CAP), blocks: [] };
+  }
+  const entries = Object.entries(input);
+  const broken = entries.filter((entry): entry is [string, string] => hasLineBreak(entry[1]));
+  const line = elide(
+    JSON.stringify(Object.fromEntries(entries.filter(([, value]) => !hasLineBreak(value)))),
+    TOOL_INPUT_CAP
+  );
+  return { line, blocks: blocksOf(broken, TOOL_INPUT_CAP - line.length) };
 };
 
 // omp `toolCallLine` before its result: `→ name(args) ⇒ pending`; the brief keeps omp's one-line argument.
@@ -56,7 +82,9 @@ const callPiece = (block: ApiContentBlock): Piece => {
   const brief = `→ ${name}(${primaryArg(name, block.input)})${PENDING}`;
   const call = textOf(block.id);
   if (name !== ASK_TOOL) {
-    return { text: `→ ${name}(${inputText(block.input)})${PENDING}`, role: 'agent', brief, call };
+    const { line, blocks } = inputText(block.input);
+    const text = [`→ ${name}(${line})${PENDING}`, ...blocks].join('\n');
+    return { text, role: 'agent', brief, call };
   }
   const ask = fenced(elide(JSON.stringify(block.input ?? {}, null, 2), TOOL_INPUT_CAP), 'json');
   return { text: `${brief}\n${ASK_INPUT}:\n${ask}`, role: 'agent', brief, call };
