@@ -10,7 +10,7 @@ node scripts/live-probe/probe.mjs --only fc,l3 --out /tmp/wd-live-probe/mine
 ```
 
 It runs the 11 first checks (spec §16.4), the L3 column of §16.1 and the release-probe items of §16.5, with the §16.3
-setup: the cached `~/.cache/claude-code-2.1.290/node_modules/.bin/claude` by its full path, `DISABLE_AUTOUPDATER=1`,
+setup: the cached `~/.cache/claude-code-2.1.299/node_modules/.bin/claude` by its full path, `DISABLE_AUTOUPDATER=1`,
 `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`, `--setting-sources project,local`, and `env -u NO_COLOR -u CI TERM=xterm-256color`.
 
 - A **deterministic** check fails the run (exit 1). An **advisory** check is model behavior or an engine fact the
@@ -43,12 +43,12 @@ requires. oxfmt still formats the folder. `npm run check` does not run the probe
 
 ## Desktop checklist
 
-Desktop support starts when Claude.app bundles Claude Code 2.1.290 or later. The probe cannot drive the desktop app, so
+Desktop support starts when Claude.app bundles Claude Code 2.1.299 or later. The probe cannot drive the desktop app, so
 run this list by hand on that version and keep your notes beside the probe report (spec §16.3, §16.5). Install from the
 marketplace first (`/plugin marketplace add matteoantoci/claude-plugins`, `/plugin install watchdog@matteoantoci-plugins`)
 and open a small git repo with a `WATCHDOG.json` of one `haiku` watchdog.
 
-- [ ] `/watchdog` draws the status table, not `unsupported`: the bundled engine is 2.1.290 or later.
+- [ ] `/watchdog` draws the status table, not `unsupported`: the bundled engine is 2.1.299 or later.
 - [ ] The attach switch (§5.3): quit Claude.app, start it with `open --env CLAUDE_WATCHDOG=on -a Claude` and open a
       session. `/watchdog` shows it off, and `/watchdog dump` lists the warning `CLAUDE_WATCHDOG on state dropped at
       the Desktop attach`.

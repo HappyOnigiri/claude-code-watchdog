@@ -9,11 +9,10 @@ A second model reviews each step that Claude Code takes and sends it short notes
 
 ## Requirements
 
-Claude Code 2.1.290 or later. Watchdog is a mod: a plugin whose code Claude Code runs inside your session. The npm
-`stable` channel (2.1.285 on 2026-10-06) has no mods. Below 2.1.290 the plugin shows `unsupported`. Desktop support
-starts when Claude.app bundles Claude Code 2.1.290 or later.
+Claude Code 2.1.299 or later. Watchdog is a mod: a plugin whose code Claude Code runs inside your session. Below
+2.1.299 the plugin shows `unsupported`. Desktop support starts when Claude.app bundles Claude Code 2.1.299 or later.
 
-Check `claude --version` first. If it is below 2.1.290, move to the npm `latest` channel:
+Check `claude --version` first. If it is below 2.1.299, move to the npm `latest` channel:
 `npm install -g @anthropic-ai/claude-code@latest`.
 
 ## Quick start

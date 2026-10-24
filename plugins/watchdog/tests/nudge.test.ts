@@ -26,7 +26,6 @@ import type { OnEvents } from '../hooks/on';
 import type { DeliveryEvents, DeliverySeen, DeliveryStubs } from './fixtures/delivery';
 import type { StateStubs } from './fixtures/on-state';
 import type { SessionEvents } from './fixtures/session';
-import type { TurnStartInput } from 'claude-code';
 import type { Engine } from 'claude-code/testing';
 
 const CONCERN = 'parseDate drops the timezone';
@@ -42,10 +41,9 @@ const reviewEnd = async ($: Engine): Promise<void> => {
   await $.turn.complete({ ...turnEnd('r1'), agentId: REVIEW_AGENT, usage: USAGE });
 };
 
-// The review agent's own turn.start: from 2.1.299 the engine fires it with the loop's `agentId`; the 2.1.290 types
-// have no such field.
+// The review agent's own turn.start: from 2.1.299 the engine fires it with the loop's `agentId`.
 const reviewStart = async ($: Engine, turnId: string): Promise<void> => {
-  await $.turn.start({ text: 'review', turnId, agentId: REVIEW_AGENT } as TurnStartInput);
+  await $.turn.start({ text: 'review', turnId, agentId: REVIEW_AGENT });
 };
 
 // The mod's nudges: the prompts it submitted, as the engine got them.

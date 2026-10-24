@@ -109,7 +109,7 @@ const rowsOf = (E: TableElements, table: StatusTable, isNarrow: boolean): Render
       ? []
       : [rowBox(E, HEADER, { key: 'header', style: { dimColor: true, underline: true } })]),
     ...table.rows.flatMap((row) => [rowBox(E, row, { key: `row:${row.name}`, style: {} }), ...detailLine(E, row)]),
-    ...session.map((row) => rowBox(E, row, { key: 'session', style: { bold: true } })),
+    ...session.map((row) => rowBox(E, row, { key: 'session', style: { weight: 'semibold' } })),
   ];
 };
 
@@ -125,7 +125,7 @@ export const drawStatus = (E: TableElements, table: StatusTable, columns: number
     key: 'watchdog-status',
     flexDirection: 'column',
     children: [
-      lineText(E, isNarrow ? table.narrowHead : table.head, { bold: true }),
+      lineText(E, isNarrow ? table.narrowHead : table.head, { weight: 'semibold' }),
       ...rowsOf(E, table, isNarrow),
       ...table.lastError.map((line) => lineText(E, line.text, line.isRed ? { color: 'error' } : { dimColor: true })),
       ...table.lines.map((line) => lineText(E, line, {})),

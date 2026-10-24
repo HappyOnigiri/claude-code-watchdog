@@ -15,7 +15,7 @@ export const CLAUDE_HOME = path.join(HOME, '.claude');
 export const USER_SETTINGS = path.join(CLAUDE_HOME, 'settings.json');
 
 // §3, §16.3: the minimum and pinned Claude Code version.
-export const PINNED_VERSION = '2.1.290';
+export const PINNED_VERSION = '2.1.299';
 
 // §16.3: `~/.cache/claude-code-<version>/node_modules/.bin/claude`, never a bare `claude` from PATH.
 export const claudeBin = (version) => path.join(HOME, `.cache/claude-code-${version}/node_modules/.bin/claude`);

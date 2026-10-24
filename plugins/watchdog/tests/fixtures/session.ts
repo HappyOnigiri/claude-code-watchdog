@@ -245,7 +245,7 @@ const stubWorkspace = (on: SessionStubs, seen: Seen, options: Options): void => 
     } else {
       env.set(e.name, e.value);
     }
-    return { value: undefined };
+    return { value: {} };
   });
   on('settings.read', (_$, e) => {
     seen.settingsReads.push(e.source);
@@ -274,7 +274,7 @@ const stubWorkspace = (on: SessionStubs, seen: Seen, options: Options): void => 
 };
 
 const stubRegisters = (on: SessionStubs, seen: Seen, options: Options): void => {
-  on('session.version', () => ({ value: { version: '2.1.290', base: '2.1.290' } }));
+  on('session.version', () => ({ value: { version: '2.1.299', base: '2.1.299' } }));
   on('session.start', (_$, e) => ({ cwd: e.cwd }));
   on('command.register', (_$, e) => ({ value: { command: e.name } }));
   on('tool.register', (_$, e) => {
