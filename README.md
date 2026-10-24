@@ -97,7 +97,7 @@ are in [docs/configuration.md](docs/configuration.md). This file adds a second r
 
 ## Development
 
-`npm install` sets up the tools and the pre-commit hook. `npm run check` runs the 6 checks of pre-commit and CI:
+`npm install` sets up the tools and the pre-commit hook. The hooks refuse commits and merge commits on `main`; commit on a branch. `npm run check` runs the 6 checks of pre-commit and CI:
 `rules`, `fmt:check`, `lint`, `typecheck`, `validate` and `test`. See [docs/plugin-dev.md](docs/plugin-dev.md). Before
 a release and before a bump of the pinned Claude Code version, run the live probe by hand, on a real model and login:
 [scripts/live-probe/README.md](scripts/live-probe/README.md).
