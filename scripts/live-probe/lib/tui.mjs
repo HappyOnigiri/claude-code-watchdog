@@ -29,6 +29,11 @@ export const READY = /for shortcuts|to see subagents|← for agents/u;
 export const BUSY = /esc to interrupt/iu;
 const TRUST = /Yes, I trust this folder/u;
 
+// The key that sends a prompt: Enter, or ctrl+Enter as a CSI u sequence (`WDPROBE_SUBMIT=ctrl-enter`) when the
+// user's ~/.claude/keybindings.json binds Enter to `chat:newline`, which the probe sessions load too.
+const SUBMIT_KEYS =
+  process.env.WDPROBE_SUBMIT === 'ctrl-enter' ? ['-H', '1b', '5b', '31', '33', '3b', '35', '75'] : ['Enter'];
+
 // Starts claude in run.proj and answers the trust dialog. Returns the driver.
 export const startTui = async (run, options = {}) => {
   const {
@@ -77,12 +82,12 @@ export const startTui = async (run, options = {}) => {
       await sleep(250);
     }
   };
-  // Types the text, waits, then presses Enter (a slash command needs the pause for its menu).
+  // Types the text, waits, then sends it (a slash command needs the pause for its menu).
   const type = async (text, { enter = true } = {}) => {
     tmux('send-keys', '-t', session, '-l', text);
     await sleep(800);
     if (enter) {
-      tmux('send-keys', '-t', session, 'Enter');
+      tmux('send-keys', '-t', session, ...SUBMIT_KEYS);
     }
     await sleep(300);
   };
