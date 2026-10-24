@@ -1,5 +1,5 @@
 import { watchdogBySlug } from '../agents/roster';
-import { addCard } from '../band/cards';
+import { addCard, cardKey } from '../band/cards';
 import { DEFAULT_MAX_NOTES_PER_REVIEW } from '../constants';
 import { errorText } from '../errors';
 import { currentLog, traceNote } from '../log/log';
@@ -22,6 +22,7 @@ import {
   watchdogNotes,
 } from './history';
 import { deliveryFor, guardNote, heldNoteOf, holdNote, logRow, replaceHeldNote, watchHeldNotes } from './notes';
+import { forgetSkipped, isQuiet, skipRow, watchSkipped } from './quiet';
 import { SUPERSEDED, retract, retractionOf } from './retract';
 import type { OnEvents } from '../on';
 import type { NoteCall } from './call';
@@ -65,6 +66,8 @@ const saveHistory = async ($: EngineInterface, sessionId: string, agentId?: stri
 const raiseHeld = (history: NoteHistory, queued: HeldNote, severity: Severity) => {
   const raised = { ...queued, severity };
   const shown: HeldNote = { ...raised, delivery: deliveryFor(raised) };
+  // The raise writes its own row (or skips it again), so a skipped row does not come due here.
+  forgetSkipped(cardKey(queued));
   replaceHeldNote(queued, shown);
   const change = { key: normalizeNote(queued.text), severity, delivery: shown.delivery };
   return { shown, history: updateNote(history, queued.watchdog, change) };
@@ -78,6 +81,7 @@ const displaceHeld = (history: NoteHistory, note: Note, key: string | undefined)
     return history;
   }
   dropHeldNote(gone);
+  forgetSkipped(cardKey(gone));
   traceNote({ ...gone, delivery: 'displaced' });
   return updateNote(history, note.watchdog, { key, delivery: 'displaced' });
 };
@@ -107,8 +111,19 @@ const judge = (history: NoteHistory, note: Note, key: string): Verdict =>
     }
   );
 
+// §13.2: the row of an admitted note, or none while `hideNudgedNotes` hides it; the row comes due if the note leaves
+// the nudge route undelivered.
+const writeNoteRow = ($: EngineInterface, note: HeldNote): void => {
+  const name = watchdogBySlug(note.watchdog)?.name ?? note.watchdog;
+  if (isQuiet(note.delivery)) {
+    skipRow(note, name);
+  } else {
+    $.ui.log(logRow(note, name));
+  }
+};
+
 // §9: an admitted note waits for its delivery, joins the live history of its watched agent and the review log,
-// and writes one row; the ack.
+// and writes one row (`writeNoteRow`); the ack.
 const emitNote = ($: EngineInterface, sessionId: string, note: Note): string => {
   const key = normalizeNote(note.text);
   const history = liveHistory(sessionId, note.subagent?.agentId) ?? EMPTY_HISTORY;
@@ -124,7 +139,7 @@ const emitNote = ($: EngineInterface, sessionId: string, note: Note): string => 
       : holdNew(history, note, 'displaced' in verdict ? verdict.displaced : undefined);
   setLiveHistory(sessionId, next.history, note.subagent?.agentId);
   traceNote({ ...next.shown, agentId: note.agentId });
-  $.ui.log(logRow(next.shown, watchdogBySlug(note.watchdog)?.name ?? note.watchdog));
+  writeNoteRow($, next.shown);
   return ADMITTED;
 };
 
@@ -191,8 +206,9 @@ const onNote: NoteHook = async ($, e) => {
   }
 };
 
-// §10.8: a retraction drops the open note and writes one row; the history of the note's watched agent and the review
-// log are written back. A refused write keeps the live copies; the store area shows a refused history write.
+// §10.8: a retraction drops the open note and writes one row, none for a note that `hideNudgedNotes` hides; the
+// history of the note's watched agent and the review log are written back. A refused write keeps the live copies;
+// the store area shows a refused history write.
 const retractNote = async ($: EngineInterface, e: ResolveCall): Promise<ToolCallResult> => {
   const asked = retractionOf(e);
   if (!('note' in asked)) {
@@ -201,7 +217,10 @@ const retractNote = async ($: EngineInterface, e: ResolveCall): Promise<ToolCall
   const { note, reason } = asked;
   const sessionId = await loadHistory($, note.subagent?.agentId);
   const ack = retract(note, reason);
-  $.ui.log(logRow({ ...note, delivery: SUPERSEDED }, watchdogBySlug(note.watchdog)?.name ?? note.watchdog));
+  forgetSkipped(note.key);
+  if (!isQuiet(note.delivery)) {
+    $.ui.log(logRow({ ...note, delivery: SUPERSEDED }, watchdogBySlug(note.watchdog)?.name ?? note.watchdog));
+  }
   await saveHistory($, sessionId, note.subagent?.agentId);
   await $.state.set({ plugin: 'watchdog', key: 'log' }, currentLog()).catch(() => undefined);
   return { result: ack };
@@ -230,6 +249,7 @@ export const installNote = (on: OnEvents<'tool.call'>): void => {
       ? next(e)
       : { deny: 'The note was not retracted.' }
   );
+  watchHeldNotes(watchSkipped);
   watchHeldNotes((_before, after) => {
     const change = { key: normalizeNote(after.text), delivery: after.delivery };
     changeLiveHistory(after.subagent?.agentId, (history) => updateNote(history, after.watchdog, change));

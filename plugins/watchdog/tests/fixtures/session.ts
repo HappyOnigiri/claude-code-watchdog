@@ -419,3 +419,6 @@ export const mainRow = (uuid: string, role: 'user' | 'assistant', text: string):
 
 export const turnEnd = (turnId: string) =>
   ({ turnId, reason: 'answer', answer: 'done', durationMs: 5, isAborted: false }) as const;
+
+// `hideNudgedNotes` off: a note of the nudge route writes its row and draws its card, as before the option.
+export const SHOW_NUDGED = { options: { hideNudgedNotes: false } };

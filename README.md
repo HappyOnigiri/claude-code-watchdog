@@ -23,13 +23,16 @@ Check `claude --version` first. If it is below 2.1.299, move to the npm `latest`
 ```
 
 Then run `/watchdog on` (reviews are off until you do) and ask Claude for a small change. The note shows as a
-`watchdog: [concern] …` line in the transcript and as a card, one line with its first sentence above the prompt box.
+`watchdog: [concern] …` line in the transcript and as a card, one line with its first sentence above the prompt box. A
+note that the plugin sends by a nudge shows only in the nudge prompt (see `hideNudgedNotes` under
+[Cost and off switch](#cost-and-off-switch)).
 Click the card's `▸`, or press ctrl+x tab and then its letter (`a`, `b`, `c`), to read the whole note with its
 watchdog, age and state; Esc gives the focus back to the prompt. Run `/watchdog status` to see each watchdog's reviews,
 notes, tokens and cost. A card names its watchdog when you run two or more.
 
 At its right end a card shows only what needs a look: the subagent type for a note on a subagent; the state while the
-note has not reached Claude yet, `nudge pending` (the plugin starts a turn so that Claude reads it), `held` or `aside`
+note has not reached Claude yet, `nudge pending` (the plugin starts a turn so that Claude reads it; its card shows only
+with `hideNudgedNotes` set to `false`), `held` or `aside`
 (Claude reads it with your next prompt); nothing once it is `steered` (Claude reads it after its next tool result) or
 `nudged`. When Claude edited files after the review read its update, the card says `outdated? N edits` (the open card
 says `may be outdated: N edits since`), and Claude reads the same mark with the note. The next review of the same
@@ -66,7 +69,11 @@ review before it nudges, so Claude does not go after a bug it already fixed.
 - Settings, in `/plugin` (Installed, Watchdog, Configure options) or `/config`: `onByDefault` (default `false`) turns
   reviews on in each new interactive session. `immuneTurns` (0 to 5, default `3`) is the number of turns after a nudge
   before the next nudge for a concern; a nudge is a turn that the plugin starts so that Claude reads a note that came
-  after its reply.
+  after its reply. `hideNudgedNotes` (default `true`) shows a note that goes by a nudge only in the nudge prompt: no
+  `watchdog:` line, no card, and no line when a later review retracts it. If the note reaches Claude another way
+  instead (a turn started before the nudge, or the nudge failed), its line and its card show from then on; after a
+  failed nudge they show at the next turn, tool call or prompt. Set it to `false` to see the line and the card of each
+  note.
 - Each nudge is one more turn of Claude. After each of your prompts the plugin sends at most 1 nudge for concerns and
   2 for blockers (a concern that comes with a blocker rides along); a later note waits for your next prompt.
   `/watchdog status` shows both counts, for example `nudge 1/1 · blocker 0/2`.

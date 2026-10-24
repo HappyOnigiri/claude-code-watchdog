@@ -3,13 +3,15 @@ import { currentTurn } from '../delivery/turns';
 import { currentMode } from '../lifecycle/mode';
 import { isInteractiveSession } from '../lifecycle/on-order';
 import { watchHeldNotes } from '../note/notes';
+import { isQuiet, pruneSkipped, setHideNudged, takeDueRows } from '../note/quiet';
 import { isPersonPrompt } from '../person';
 import { EMPTY_BAND, bandState, changeCard, clearCards, restoreBand, toggleCard } from './cards';
 import { troubleLine } from './problems';
 import { bandTree } from './tree';
 import type { OnEvents } from '../on';
+import type { Band } from './cards';
 import type { Trouble } from './problems';
-import type { EngineInterface, Hook, MatchedHook, PluginState, RenderElement } from 'claude-code';
+import type { EngineInterface, Hook, MatchedHook, PluginOptions, PluginState, RenderElement } from 'claude-code';
 
 type BandHook = MatchedHook<'ui.render', { component: 'AbovePrompt' }>;
 
@@ -31,22 +33,32 @@ const writeBand = async ($: EngineInterface): Promise<void> => {
   });
 };
 
-// The note hook and the delivery hooks beneath change the cards; each of these hooks writes the band after them.
+// `hideNudgedNotes`: the row of a hidden note that left the nudge route undelivered (a steer, `held`, an aside) is
+// written with the band. A route that a timer changed (a refused nudge) writes at the next of these hooks.
+const writeBandAndRows = async ($: EngineInterface): Promise<void> => {
+  takeDueRows().forEach((row) => {
+    $.ui.log(row);
+  });
+  await writeBand($);
+};
+
+// The note hook and the delivery hooks beneath change the cards and the routes; each of these hooks writes the band
+// and the rows that came due after them.
 const afterTool: Hook<'tool.call'> = async ($, e, next) => {
   const result = await next(e);
-  await writeBand($);
+  await writeBandAndRows($);
   return result;
 };
 
 const afterTurnStart: Hook<'turn.start'> = async ($, e, next) => {
   const result = await next(e);
-  await writeBand($);
+  await writeBandAndRows($);
   return result;
 };
 
 const afterTurnComplete: Hook<'turn.complete'> = async ($, e, next) => {
   const result = await next(e);
-  await writeBand($);
+  await writeBandAndRows($);
   return result;
 };
 
@@ -54,9 +66,10 @@ const afterTurnComplete: Hook<'turn.complete'> = async ($, e, next) => {
 const onPrompt: Hook<'prompt.submit'> = async ($, e, next) => {
   if (isPersonPrompt(e.origin)) {
     clearCards();
+    pruneSkipped();
   }
   const result = await next(e);
-  await writeBand($);
+  await writeBandAndRows($);
   return result;
 };
 
@@ -65,7 +78,9 @@ const afterCommand: Hook<'command.run'> = async ($, e, next) => {
   const result = await next(e);
   if (currentMode() === 'off') {
     clearCards();
+    pruneSkipped();
   }
+  // §13.2: a row from a `command.run` hook would land above the command echo; the rows that came due wait.
   await writeBand($);
   return result;
 };
@@ -104,13 +119,20 @@ const troubleText = async ($: EngineInterface, health: Health | undefined, colum
   return troubleLine(found, { now, columns, isAlone: currentRoster().length === 1 });
 };
 
+// `hideNudgedNotes`: a card whose note goes by a nudge stays in the band (its note stays open for a retraction, §10.8)
+// but is not drawn; an expanded one draws collapsed.
+const shownBand = (band: Band): Band => {
+  const cards = band.cards.filter((card) => !isQuiet(card.delivery));
+  return { ...band, cards, expanded: cards.some((card) => card.key === band.expanded) ? band.expanded : null };
+};
+
 // §13.1: the `$.state` keys the band draws. Reading them subscribes the band, so each write draws it again.
 const readKeys = async ($: EngineInterface) => {
   const on = await $.state.get({ plugin: 'watchdog', key: 'on' }).catch(() => undefined);
   const band = await $.state.get({ plugin: 'watchdog', key: 'band' }).catch(() => undefined);
   const health = await $.state.get({ plugin: 'watchdog', key: 'health' }).catch(() => undefined);
   const isOn = on?.value?.isOn;
-  return { isOn, band: band?.value ?? EMPTY_BAND, health: isOn === true ? health?.value : undefined };
+  return { isOn, band: shownBand(band?.value ?? EMPTY_BAND), health: isOn === true ? health?.value : undefined };
 };
 
 // §13.1: the band reads its keys first, also in a session it does not draw, so that a write that comes before
@@ -150,8 +172,10 @@ export const installBand = (
     | 'session.start'
     | 'ui.render'
     | 'ui.press'
-  >
+  >,
+  options: PluginOptions
 ): void => {
+  setHideNudged(options.hideNudgedNotes);
   watchHeldNotes(changeCard);
   on('tool.call', { tool: /./u }, afterTool);
   on('turn.start', { turnId: /^/u }, afterTurnStart);

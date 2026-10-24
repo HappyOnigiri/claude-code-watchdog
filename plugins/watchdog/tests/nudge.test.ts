@@ -21,6 +21,7 @@ import {
   stubSession,
   turnEnd,
   typed,
+  SHOW_NUDGED,
 } from './fixtures/session';
 import type { OnEvents } from '../hooks/on';
 import type { DeliveryEvents, DeliverySeen, DeliveryStubs } from './fixtures/delivery';
@@ -66,38 +67,48 @@ const lateBlocker = async ($: Engine, text: string): Promise<void> => {
   await reviewEnd($);
 };
 
+type RefusedStubs = OnEvents<SessionEvents | 'clock.after' | 'state.get' | 'state.set'>;
+
 const statusHead = async ($: Engine): Promise<string | undefined> =>
   (await $.command.run(typed('status'))).text?.split('\n')[0];
 
 describe('late note and nudge', () => {
-  test('a late concern starts one nudge from the 2 s wait after the review ends', async ($, on: DeliveryStubs) => {
-    const seen = stubDelivery(on);
-    await startReview($);
-    await personTurn($, 't1');
-    await $.turn.complete(turnEnd('t1'));
-    await sendNote($, 'concern', CONCERN);
-    expect(seen.logs.at(-1)).toBe(`[concern] default: ${CONCERN} (nudge pending)`);
+  test(
+    'a late concern starts one nudge from the 2 s wait after the review ends',
+    SHOW_NUDGED,
+    async ($, on: DeliveryStubs) => {
+      const seen = stubDelivery(on);
+      await startReview($);
+      await personTurn($, 't1');
+      await $.turn.complete(turnEnd('t1'));
+      await sendNote($, 'concern', CONCERN);
+      expect(seen.logs.at(-1)).toBe(`[concern] default: ${CONCERN} (nudge pending)`);
 
-    await reviewEnd($);
-    await seen.clock.advance(1999);
-    expect(nudges(seen)).toEqual([]);
-    await seen.clock.advance(1);
-    expect(nudges(seen)).toEqual([wrapped(`<note severity="concern">${CONCERN}</note>`)]);
-  });
+      await reviewEnd($);
+      await seen.clock.advance(1999);
+      expect(nudges(seen)).toEqual([]);
+      await seen.clock.advance(1);
+      expect(nudges(seen)).toEqual([wrapped(`<note severity="concern">${CONCERN}</note>`)]);
+    }
+  );
 
-  test('the review agent own turn.start neither runs a main turn nor adds to the counter', async ($, on: DeliveryStubs) => {
-    const seen = stubDelivery(on);
-    await startReview($);
-    await personTurn($, 't1');
-    await $.turn.complete(turnEnd('t1'));
-    await reviewStart($, 'r1');
-    await sendNote($, 'concern', CONCERN);
-    expect(seen.logs.at(-1)).toBe(`[concern] default: ${CONCERN} (nudge pending)`);
+  test(
+    'the review agent own turn.start neither runs a main turn nor adds to the counter',
+    SHOW_NUDGED,
+    async ($, on: DeliveryStubs) => {
+      const seen = stubDelivery(on);
+      await startReview($);
+      await personTurn($, 't1');
+      await $.turn.complete(turnEnd('t1'));
+      await reviewStart($, 'r1');
+      await sendNote($, 'concern', CONCERN);
+      expect(seen.logs.at(-1)).toBe(`[concern] default: ${CONCERN} (nudge pending)`);
 
-    await reviewEnd($);
-    await seen.clock.advance(2000);
-    expect(nudges(seen)).toEqual([wrapped(`<note severity="concern">${CONCERN}</note>`)]);
-  });
+      await reviewEnd($);
+      await seen.clock.advance(2000);
+      expect(nudges(seen)).toEqual([wrapped(`<note severity="concern">${CONCERN}</note>`)]);
+    }
+  );
 
   test('a review that starts in the 2 s wait does not end it', async ($, on: DeliveryStubs) => {
     const seen = stubDelivery(on);
@@ -166,25 +177,29 @@ describe('late note and nudge', () => {
     ]);
   });
 
-  test('after a concern nudge a late blocker still gets a nudge, of its own budget', async ($, on: DeliveryStubs) => {
-    const seen = stubDelivery(on);
-    await startReview($);
-    await personTurn($, 't1');
-    await $.turn.complete(turnEnd('t1'));
-    await sendNote($, 'concern', CONCERN);
-    await reviewEnd($);
-    await seen.clock.advance(2000);
-    expect(nudges(seen)).toEqual([wrapped(`<note severity="concern">${CONCERN}</note>`)]);
+  test(
+    'after a concern nudge a late blocker still gets a nudge, of its own budget',
+    SHOW_NUDGED,
+    async ($, on: DeliveryStubs) => {
+      const seen = stubDelivery(on);
+      await startReview($);
+      await personTurn($, 't1');
+      await $.turn.complete(turnEnd('t1'));
+      await sendNote($, 'concern', CONCERN);
+      await reviewEnd($);
+      await seen.clock.advance(2000);
+      expect(nudges(seen)).toEqual([wrapped(`<note severity="concern">${CONCERN}</note>`)]);
 
-    // The concern budget is spent and the nudge turn cools down; neither holds a blocker.
-    await nudgeTurn($, seen, 'n1');
-    await lateBlocker($, BLOCKER);
-    expect(seen.logs.at(-1)).toBe(`[blocker] default: ${BLOCKER} (nudge pending)`);
-    await seen.clock.advance(2000);
-    expect(nudges(seen)).toHaveLength(2);
-    expect(nudges(seen).at(-1)).toBe(wrapped(`<note severity="blocker">${BLOCKER}</note>`));
-    expect(await statusHead($)).toBe('watchdog on · nudge 1/1 · blocker 1/2 · cooldown 3');
-  });
+      // The concern budget is spent and the nudge turn cools down; neither holds a blocker.
+      await nudgeTurn($, seen, 'n1');
+      await lateBlocker($, BLOCKER);
+      expect(seen.logs.at(-1)).toBe(`[blocker] default: ${BLOCKER} (nudge pending)`);
+      await seen.clock.advance(2000);
+      expect(nudges(seen)).toHaveLength(2);
+      expect(nudges(seen).at(-1)).toBe(wrapped(`<note severity="blocker">${BLOCKER}</note>`));
+      expect(await statusHead($)).toBe('watchdog on · nudge 1/1 · blocker 1/2 · cooldown 3');
+    }
+  );
 
   test('a third blocker nudge in one person prompt is held, also after a task notification turn', async ($, on: DeliveryStubs) => {
     const seen = stubDelivery(on);
@@ -357,25 +372,79 @@ describe('§5.2 `/watchdog off` and a nudge that waits', () => {
   });
 });
 
-describe('the nudge budget after a refused nudge (§10.3, §10.4)', () => {
-  type RefusedStubs = OnEvents<SessionEvents | 'clock.after' | 'state.get' | 'state.set'>;
+describe('hideNudgedNotes (default on)', () => {
+  test('a late concern goes only in the nudge: no row before or after it', async ($, on: DeliveryStubs) => {
+    const seen = stubDelivery(on);
+    await startReview($);
+    await personTurn($, 't1');
+    await $.turn.complete(turnEnd('t1'));
+    const rows = seen.logs.length;
+    await sendNote($, 'concern', CONCERN);
+    await reviewEnd($);
+    await seen.clock.advance(2000);
+    await nudgeTurn($, seen, 't2');
 
-  test('a nudge whose submit rejects gives the budget back and leaves no wait in $.state', async ($, on: RefusedStubs) => {
-    // The 2 s wait runs at once, and no hook answers `prompt.submit` beneath the mod, so the nudge rejects.
+    expect(nudges(seen)).toEqual([wrapped(`<note severity="concern">${CONCERN}</note>`)]);
+    expect(seen.logs.slice(rows)).toEqual([]);
+  });
+
+  test('a hidden note that a turn steers before its nudge writes its row once, as steered', async ($, on: DeliveryStubs) => {
+    const seen = stubDelivery(on);
+    await startReview($);
+    await personTurn($, 't1');
+    await $.turn.complete(turnEnd('t1'));
+    const rows = seen.logs.length;
+    await sendNote($, 'concern', CONCERN);
+    expect(seen.logs.slice(rows)).toEqual([]);
+
+    await personTurn($, 't2');
+    await $.turn.complete(turnEnd('t2'));
+    expect(seen.logs.slice(rows)).toEqual([`[concern] default: ${CONCERN} (steered)`]);
+  });
+
+  test('a hidden blocker whose nudge is refused writes its row once, as held', async ($, on: RefusedStubs) => {
     const seen = stubSession(on);
     stubAfterAtOnce(on);
-    const state = stubState(on);
+    stubState(on);
     await $.session.start(START);
     await $.command.run(typed('on'));
     await $.session.append(mainRow('u1', 'user', 'Fix the parser.')).catch(() => undefined);
     await $.turn.complete(turnEnd('t1'));
     await $.agent.spawn(REVIEW_SPAWN);
+    const rows = seen.logs.length;
     await lateBlocker($, BLOCKER);
+    await $.turn.complete(turnEnd('t2'));
 
-    expect(seen.logs.at(-1)).toBe(`[blocker] default: ${BLOCKER} (nudge pending)`);
-    expect(await statusHead($)).toBe('watchdog on · nudge 0/1 · blocker 0/2 · cooldown 0');
-    expect(stateIn(state, SESSION_ID, 'nudge')).toMatchObject({ nudges: 0, blockerNudges: 0, dueAt: null, notes: [] });
+    expect(seen.logs.slice(rows)).toEqual([`[blocker] default: ${BLOCKER} (held)`]);
   });
+});
+
+describe('the nudge budget after a refused nudge (§10.3, §10.4)', () => {
+  test(
+    'a nudge whose submit rejects gives the budget back and leaves no wait in $.state',
+    SHOW_NUDGED,
+    async ($, on: RefusedStubs) => {
+      // The 2 s wait runs at once, and no hook answers `prompt.submit` beneath the mod, so the nudge rejects.
+      const seen = stubSession(on);
+      stubAfterAtOnce(on);
+      const state = stubState(on);
+      await $.session.start(START);
+      await $.command.run(typed('on'));
+      await $.session.append(mainRow('u1', 'user', 'Fix the parser.')).catch(() => undefined);
+      await $.turn.complete(turnEnd('t1'));
+      await $.agent.spawn(REVIEW_SPAWN);
+      await lateBlocker($, BLOCKER);
+
+      expect(seen.logs.at(-1)).toBe(`[blocker] default: ${BLOCKER} (nudge pending)`);
+      expect(await statusHead($)).toBe('watchdog on · nudge 0/1 · blocker 0/2 · cooldown 0');
+      expect(stateIn(state, SESSION_ID, 'nudge')).toMatchObject({
+        nudges: 0,
+        blockerNudges: 0,
+        dueAt: null,
+        notes: [],
+      });
+    }
+  );
 
   test('a person prompt during a refused nudge leaves the new budgets at 0, so the next prompt gets its nudges', async ($, on: DeliveryStubs) => {
     const clock = mock.clock(on, { now: NOW });

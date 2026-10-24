@@ -1,5 +1,15 @@
 import { describe, expect, test } from 'claude-code/testing';
-import { AGENT_TOOL_AGENT, REVIEW_AGENT, START, USAGE, mainRow, stubSession, turnEnd, typed } from './fixtures/session';
+import {
+  AGENT_TOOL_AGENT,
+  REVIEW_AGENT,
+  START,
+  USAGE,
+  mainRow,
+  stubSession,
+  turnEnd,
+  typed,
+  SHOW_NUDGED,
+} from './fixtures/session';
 import type { OnEvents } from '../hooks/on';
 import type { SessionStubs } from './fixtures/session';
 import type { AgentInfo, AgentSpawnInput } from 'claude-code';
@@ -26,21 +36,25 @@ const startReview = async ($: Engine): Promise<void> => {
 };
 
 describe('the note tool', () => {
-  test('a note of a review agent gets the admitted ack and writes one log row', async ($, on: SessionStubs) => {
-    const seen = stubSession(on);
-    await startReview($);
-    const logsBefore = seen.logs.length;
-    const answer = await $.tool.call({
-      tool: NOTE,
-      agentId: REVIEW_AGENT,
-      note: 'missing null check',
-      severity: 'concern',
-    });
+  test(
+    'a note of a review agent gets the admitted ack and writes one log row',
+    SHOW_NUDGED,
+    async ($, on: SessionStubs) => {
+      const seen = stubSession(on);
+      await startReview($);
+      const logsBefore = seen.logs.length;
+      const answer = await $.tool.call({
+        tool: NOTE,
+        agentId: REVIEW_AGENT,
+        note: 'missing null check',
+        severity: 'concern',
+      });
 
-    expect(answer).toEqual({ result: 'Queued. Do not re-raise.' });
-    expect(seen.logs.slice(logsBefore)).toEqual(['[concern] default: missing null check (nudge pending)']);
-    expect(seen.coreToolCalls).toEqual([]);
-  });
+      expect(answer).toEqual({ result: 'Queued. Do not re-raise.' });
+      expect(seen.logs.slice(logsBefore)).toEqual(['[concern] default: missing null check (nudge pending)']);
+      expect(seen.coreToolCalls).toEqual([]);
+    }
+  );
 
   test('the main loop and an unknown agent get the deny, and no row', async ($, on: SessionStubs) => {
     const seen = stubSession(on);

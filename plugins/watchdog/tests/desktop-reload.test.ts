@@ -2,6 +2,7 @@ import { describe, expect, test } from 'claude-code/testing';
 import { BAND_SURFACES, bandTarget, stubEngineBand } from './fixtures/band';
 import { REVIEW_SPAWN, sendNote, stubDelivery } from './fixtures/delivery';
 import { DESKTOP_START, stubState } from './fixtures/on-state';
+import { SHOW_NUDGED } from './fixtures/session';
 import type { OnEvents } from '../hooks/on';
 import type { DeliveryEvents } from './fixtures/delivery';
 import type { RenderSurface } from 'claude-code';
@@ -36,11 +37,23 @@ const firstCards = async ($: Engine): Promise<(string | undefined)[]> =>
   );
 
 describe('a reload on the Desktop (§5.3, §14.6)', () => {
-  test('the desktop among the surfaces keeps the session interactive: a late concern is nudged and drawn as a card', async ($, on: Stubs) => {
+  test(
+    'the desktop among the surfaces keeps the session interactive: a late concern is nudged and drawn as a card',
+    SHOW_NUDGED,
+    async ($, on: Stubs) => {
+      const seen = await reload($, on, ['desktop']);
+      await sendNote($, 'concern', CONCERN);
+      expect(seen.logs.at(-1)).toBe(`[concern] default: ${CONCERN} (nudge pending)`);
+      expect(await firstCards($)).toEqual(BAND_SURFACES.map(() => `▸ CONCERN  ${CONCERN}  nudge pending`));
+    }
+  );
+
+  test('by default the nudged concern writes no row and draws no card', async ($, on: Stubs) => {
     const seen = await reload($, on, ['desktop']);
+    const rows = seen.logs.length;
     await sendNote($, 'concern', CONCERN);
-    expect(seen.logs.at(-1)).toBe(`[concern] default: ${CONCERN} (nudge pending)`);
-    expect(await firstCards($)).toEqual(BAND_SURFACES.map(() => `▸ CONCERN  ${CONCERN}  nudge pending`));
+    expect(seen.logs.slice(rows)).toEqual([]);
+    expect(await firstCards($)).toEqual(BAND_SURFACES.map(() => undefined));
   });
 
   test('no surface is a -p run: a late concern waits as an aside on the next prompt and no card is drawn', async ($, on: Stubs) => {

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 - 2026-10-24
+
+- A note that the plugin sends to Claude by a nudge now shows only in the nudge prompt. It writes no
+  `watchdog: [...] … (nudge pending)` line and draws no card above the prompt box. When a later review retracts it, no
+  `(dropped:superseded)` line shows either. Before, the same text showed in the line, in the nudge prompt and in the
+  retraction line. A note that reaches Claude another way instead (a turn that starts before the nudge, or a refused
+  nudge) writes its line in its new state; after a refused nudge, at the next turn, tool call or prompt. The new setting `hideNudgedNotes` (default `true`) turns this off.
+
 ## 0.2.5 - 2026-10-24
 
 - `/watchdog status` and `/watchdog dump` show the cost of a review on Claude Haiku 5.5. Before, it showed `$?`.
