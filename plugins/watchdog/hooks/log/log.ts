@@ -1,8 +1,8 @@
 import { LOG_RECORD_CAP, RAW_PROMPT_CAP } from '../constants';
-import { usageCost } from '../prices';
+import { requestCost, turnCost } from '../prices';
 import type { Watchdog } from '../agents/roster';
 import type { DeliveryState, HeldNote } from '../note/notes';
-import type { PluginState, TurnCompleteInput } from 'claude-code';
+import type { ModelUsage, PluginState, TurnCompleteInput, TurnUsage } from 'claude-code';
 
 // §13.4: one record of the review log (its shape is the `log` key of the state contract).
 export type LogRecord = PluginState['watchdog']['log'][number];
@@ -11,9 +11,19 @@ export type ReviewRecord = Extract<LogRecord, { kind: 'review' }>;
 
 type LogNote = ReviewRecord['notes'][number];
 
-// What the mod saw of one review agent while it ran: its `turn.step` count (§12.1), its admitted notes and the
-// error of its outcome (§12.4).
-export type ReviewTrace = { readonly steps: number; readonly notes: readonly LogNote[]; readonly error: string | null };
+// §15: the requests a review agent's `turn.step` results reported: their token counts and prices summed; `cost`
+// is null once one ran a model with no price.
+type StepRequests = { readonly usage: ModelUsage; readonly cost: number | null };
+
+// What the mod saw of one review agent while it ran: its `turn.step` count (§12.1), its admitted notes, the
+// error of its outcome (§12.4), and its requests (§15), absent while no step reported usage. A hot reload loses
+// the requests of before it; `reviewCost` then finds that they do not add up to the turn.
+export type ReviewTrace = {
+  readonly steps: number;
+  readonly notes: readonly LogNote[];
+  readonly error: string | null;
+  readonly requests?: StepRequests;
+};
 
 // §13.4: the full prompt of one review, for `/watchdog dump raw`.
 export type ReviewPrompt = { readonly watchdog: string; readonly prompt: string };
@@ -38,6 +48,22 @@ export const timeoutRecord = (input: { watchdog: string; agentId: string | null;
   kind: 'timeout',
   ...input,
 });
+
+const isSameTokens = (a: ModelUsage, b: ModelUsage): boolean =>
+  a.input_tokens === b.input_tokens &&
+  a.output_tokens === b.output_tokens &&
+  a.cache_read_input_tokens === b.cache_read_input_tokens &&
+  a.cache_creation_input_tokens === b.cache_creation_input_tokens;
+
+// §15: a review costs what its turn's summed usage tells. Where the sum tells no tier, it costs its requests'
+// prices, only when the steps reported every request: their token counts add up to the turn's.
+const reviewCost = (usage: TurnUsage, trace: ReviewTrace): number | null => {
+  const cost = turnCost(usage);
+  if (cost !== null || trace.requests === undefined || !isSameTokens(trace.requests.usage, usage)) {
+    return cost;
+  }
+  return trace.requests.cost;
+};
 
 // §13.4: one finished review. §12.2: the model that ran is `usage.model`, else the roster's. §12.3 item 10: a
 // refusal keeps its category.
@@ -72,7 +98,7 @@ export const reviewRecord = (input: {
             cache_creation_input_tokens: usage.cache_creation_input_tokens,
             model: usage.model,
           },
-    cost: usage === undefined ? null : usageCost(usage),
+    cost: usage === undefined ? null : reviewCost(usage, trace),
     notes: trace.notes,
     error: trace.error,
     refusal: end.reason === 'refusal' ? end.refusal.category : null,
@@ -81,6 +107,13 @@ export const reviewRecord = (input: {
 };
 
 const EMPTY_TRACE: ReviewTrace = { steps: 0, notes: [], error: null };
+
+const NO_TOKENS: ModelUsage = {
+  input_tokens: 0,
+  output_tokens: 0,
+  cache_read_input_tokens: 0,
+  cache_creation_input_tokens: 0,
+};
 
 // The live log and the last prompts are module memory; `$.state` key `log` keeps a copy of the log
 // (§14.1). A reload loses the prompts (§13.4).
@@ -127,6 +160,23 @@ export const traceOf = (agentId: string): ReviewTrace => traces.get(agentId) ?? 
 export const countStep = (agentId: string): void => {
   const trace = traceOf(agentId);
   traces.set(agentId, { ...trace, steps: trace.steps + 1 });
+};
+
+// §15: one request of a review agent, as its `turn.step` result reported its usage.
+export const traceStepUsage = (agentId: string, usage: TurnUsage): void => {
+  const trace = traceOf(agentId);
+  const before = trace.requests ?? { usage: NO_TOKENS, cost: 0 };
+  const cost = requestCost(usage);
+  const requests: StepRequests = {
+    usage: {
+      input_tokens: before.usage.input_tokens + usage.input_tokens,
+      output_tokens: before.usage.output_tokens + usage.output_tokens,
+      cache_read_input_tokens: before.usage.cache_read_input_tokens + usage.cache_read_input_tokens,
+      cache_creation_input_tokens: before.usage.cache_creation_input_tokens + usage.cache_creation_input_tokens,
+    },
+    cost: before.cost === null || cost === null ? null : before.cost + cost,
+  };
+  traces.set(agentId, { ...trace, requests });
 };
 
 export const traceNote = (note: HeldNote): void => {

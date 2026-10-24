@@ -11,20 +11,44 @@ type Price = {
   readonly cacheWrite: number;
 };
 
+// A model priced by prompt length: a request whose prompt is over `LONG_PROMPT_TOKENS` pays the long prices.
+type PromptTiers = { readonly short: Price; readonly long: Price };
+
 const HAIKU_4_5: Price = { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 };
 
-const PRICES: Readonly<Record<string, Price>> = {
+const PRICES: Readonly<Record<string, Price | PromptTiers>> = {
   'claude-opus-5-5': { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
   'claude-sonnet-5-5': { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 },
+  'claude-haiku-5-5': {
+    short: { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0.125 },
+    long: { input: 0.5, output: 2.5, cacheRead: 0.05, cacheWrite: 0.625 },
+  },
   'claude-haiku-4-5-20251001': HAIKU_4_5,
   'claude-haiku-4-5': HAIKU_4_5,
 };
 
 const TOKENS_PER_PRICE = 1_000_000;
 
-// §15: the USD of one review's usage; null for a model that is not in the table.
-export const usageCost = (usage: TurnUsage): number | null => {
-  const price = Object.hasOwn(PRICES, usage.model) ? PRICES[usage.model] : undefined;
+// The pricing page counts a request's prompt as its uncached input, cache reads and cache writes together.
+const LONG_PROMPT_TOKENS = 100_000;
+
+const promptTokens = (usage: TurnUsage): number =>
+  usage.input_tokens + usage.cache_read_input_tokens + usage.cache_creation_input_tokens;
+
+// One request's prompt picks its tier. A turn's usage sums its requests, so its prompt bounds each request's: at
+// most the threshold, every request paid the short prices; above it, the tier of each request is unknown.
+const priceOf = (usage: TurnUsage, isOneRequest: boolean): Price | undefined => {
+  const entry = Object.hasOwn(PRICES, usage.model) ? PRICES[usage.model] : undefined;
+  if (entry === undefined || !('long' in entry)) {
+    return entry;
+  }
+  if (promptTokens(usage) <= LONG_PROMPT_TOKENS) {
+    return entry.short;
+  }
+  return isOneRequest ? entry.long : undefined;
+};
+
+const costAt = (usage: TurnUsage, price: Price | undefined): number | null => {
   if (price === undefined) {
     return null;
   }
@@ -35,6 +59,13 @@ export const usageCost = (usage: TurnUsage): number | null => {
     usage.cache_creation_input_tokens * price.cacheWrite;
   return micro / TOKENS_PER_PRICE;
 };
+
+// §15: the USD of one request's usage (a `turn.step` result); null for a model that is not in the table.
+export const requestCost = (usage: TurnUsage): number | null => costAt(usage, priceOf(usage, true));
+
+// §15: the USD of a turn's usage, its requests summed; null for a model that is not in the table, and for a model
+// priced by prompt length when the sum does not tell each request's tier.
+export const turnCost = (usage: TurnUsage): number | null => costAt(usage, priceOf(usage, false));
 
 // A sum of review costs: the USD of the priced reviews, and whether any review had a price or ran a model that
 // is not in the table.

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.5 - 2026-10-24
+
+- `/watchdog status` and `/watchdog dump` show the cost of a review on Claude Haiku 5.5. Before, it showed `$?`.
+  Haiku 5.5 charges each request by its prompt length, so the plugin now prices each request of a review on its
+  own and adds them up. A review whose prompts add up to over 100,000 tokens shows `$?` when the plugin did not see
+  each of its requests, for example after a reload while it ran.
+- The cost of a review on Claude Sonnet 5.5 now prices cache reads at $0.10 per million tokens, as the pricing page
+  says. Before, it used $0.20 and showed the cache reads at twice their cost.
+
 ## 0.2.4 - 2026-10-24
 
 - `"model": "inherit"` in `WATCHDOG.json` now runs the watchdog on the session's model, as the configuration docs say.

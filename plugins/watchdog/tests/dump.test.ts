@@ -12,7 +12,7 @@ import {
 } from './fixtures/session';
 import type { OnEvents } from '../hooks/on';
 import type { SessionEvents } from './fixtures/session';
-import type { AgentSpawnInput, RenderSurface } from 'claude-code';
+import type { AgentSpawnInput, RenderSurface, TurnUsage } from 'claude-code';
 import type { Engine } from 'claude-code/testing';
 
 type Stubs = OnEvents<SessionEvents | 'session.surfaces' | 'fs.write' | 'ui.copy' | 'clock.after'>;
@@ -68,7 +68,7 @@ const agentStep = async ($: Engine, index: number): Promise<void> => {
 
 // One whole review: a main turn, the spawn, one nit (an aside, so no nudge waits), two agent steps, the
 // agent's own `turn.complete`.
-const runReview = async ($: Engine): Promise<void> => {
+const runReview = async ($: Engine, usage: TurnUsage = USAGE): Promise<void> => {
   await $.session.start(START);
   await $.command.run(typed('on'));
   await append($, 'u1', 'Fix the date parser.');
@@ -82,7 +82,7 @@ const runReview = async ($: Engine): Promise<void> => {
   });
   await agentStep($, 0);
   await agentStep($, 1);
-  await $.turn.complete({ ...turnEnd('r1'), agentId: REVIEW_AGENT, usage: USAGE });
+  await $.turn.complete({ ...turnEnd('r1'), agentId: REVIEW_AGENT, usage });
 };
 describe('review log', () => {
   test('a review end writes one log record with its reason, steps, answer length and notes', async ($, on: Stubs) => {
@@ -108,6 +108,30 @@ describe('review log', () => {
         '> done',
       ].join('\n')
     );
+  });
+
+  test("a review's cost sums the prices of the requests its steps reported (§15)", async ($, on: Stubs) => {
+    // Each step one Haiku 5.5 request of a 60k prompt, short: 2000 × $0.10 + 1000 × $0.50 + 56,000 × $0.01 +
+    // 2000 × $0.125 per million = $0.00151. The turn's sum, a 120k prompt, alone would tell no tier.
+    const request = {
+      input_tokens: 2000,
+      output_tokens: 1000,
+      cache_read_input_tokens: 56_000,
+      cache_creation_input_tokens: 2000,
+      model: 'claude-haiku-5-5',
+    };
+    stubSession(on, { env: DUMP_ENV, stepUsage: request });
+    const dumped = stubDump(on);
+    await runReview($, {
+      input_tokens: 4000,
+      output_tokens: 2000,
+      cache_read_input_tokens: 112_000,
+      cache_creation_input_tokens: 4000,
+      model: 'claude-haiku-5-5',
+    });
+    await $.command.run(typed('dump'));
+
+    expect(dumped.writes[0]?.text).toContain('\n- cost: $0.0030\n');
   });
 });
 

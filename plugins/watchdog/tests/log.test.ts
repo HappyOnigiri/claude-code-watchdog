@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing';
 import { DEFAULT_WATCHDOG } from '../hooks/agents/roster';
 import { dumpPath, dumpText, recordText } from '../hooks/dump/dump';
-import { appendLog, errorRecord, reviewRecord, timeoutRecord } from '../hooks/log/log';
+import { appendLog, errorRecord, reviewRecord, takeTrace, timeoutRecord, traceStepUsage } from '../hooks/log/log';
 import type { LogRecord } from '../hooks/log/log';
 
 // 2026-10-06T09:05:03Z
@@ -99,6 +99,90 @@ describe('review log record', () => {
     });
     expect(priced.cost?.toFixed(6)).toBe('0.003330');
     expect(recordText(priced)).toContain('\n- cost: $0.0033\n');
+  });
+
+  test("a review whose steps reported usage costs their requests' prices, not its turn's sum (§15)", () => {
+    // Two Haiku 5.5 requests of a 60k prompt each, short: 2000 × $0.10 + 1000 × $0.50 + 56,000 × $0.01 +
+    // 2000 × $0.125 per million = $0.00151 each. The turn's sum, a 120k prompt, tells no tier.
+    const request = {
+      input_tokens: 2000,
+      output_tokens: 1000,
+      cache_read_input_tokens: 56_000,
+      cache_creation_input_tokens: 2000,
+      model: 'claude-haiku-5-5',
+    };
+    traceStepUsage('afake0001', request);
+    traceStepUsage('afake0001', request);
+    const summed = {
+      input_tokens: 4000,
+      output_tokens: 2000,
+      cache_read_input_tokens: 112_000,
+      cache_creation_input_tokens: 4000,
+      model: 'claude-haiku-5-5',
+    };
+    const priced = reviewRecord({
+      watchdog: DEFAULT_WATCHDOG,
+      agentId: 'afake0001',
+      time: TIME,
+      end: { ...END, usage: summed },
+      trace: { ...TRACE, ...takeTrace('afake0001') },
+    });
+    expect(priced.cost?.toFixed(6)).toBe('0.003020');
+    const unsplit = reviewRecord({
+      watchdog: DEFAULT_WATCHDOG,
+      agentId: 'afake0001',
+      time: TIME,
+      end: { ...END, usage: summed },
+      trace: TRACE,
+    });
+    expect(unsplit.cost).toBeNull();
+  });
+
+  test('a review whose steps missed a request costs what its turn tells: its sum, or no price (§15)', () => {
+    // Opus 5.5: the turn's sum prices it, whatever the steps saw. 1200 × $4 + 80 × $20 + 300 × $0.20 + 40 × $5
+    // per million = $0.00666.
+    traceStepUsage('afake0003', { ...END.usage, input_tokens: 100, model: 'claude-opus-5-5' });
+    const opus = reviewRecord({
+      watchdog: DEFAULT_WATCHDOG,
+      agentId: 'afake0003',
+      time: TIME,
+      end: { ...END, usage: { ...END.usage, model: 'claude-opus-5-5' } },
+      trace: { ...TRACE, ...takeTrace('afake0003') },
+    });
+    expect(opus.cost?.toFixed(6)).toBe('0.006660');
+    // Haiku 5.5 over the short tier: one 60k request of a 120k turn tells no price for the other.
+    const request = {
+      input_tokens: 2000,
+      output_tokens: 1000,
+      cache_read_input_tokens: 56_000,
+      cache_creation_input_tokens: 2000,
+      model: 'claude-haiku-5-5',
+    };
+    traceStepUsage('afake0004', request);
+    const haiku = reviewRecord({
+      watchdog: DEFAULT_WATCHDOG,
+      agentId: 'afake0004',
+      time: TIME,
+      end: {
+        ...END,
+        usage: {
+          input_tokens: 4000,
+          output_tokens: 2000,
+          cache_read_input_tokens: 112_000,
+          cache_creation_input_tokens: 4000,
+          model: 'claude-haiku-5-5',
+        },
+      },
+      trace: { ...TRACE, ...takeTrace('afake0004') },
+    });
+    expect(haiku.cost).toBeNull();
+  });
+
+  test('a step on a model with no price leaves the review with no cost (§15)', () => {
+    traceStepUsage('afake0002', { ...END.usage, model: 'claude-sonnet-5-5' });
+    traceStepUsage('afake0002', END.usage);
+    traceStepUsage('afake0002', { ...END.usage, model: 'claude-sonnet-5-5' });
+    expect(takeTrace('afake0002').requests?.cost).toBeNull();
   });
 
   test('the log keeps the newest 100 records', () => {
