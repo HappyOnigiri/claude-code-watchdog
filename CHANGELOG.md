@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2 - 2026-10-24
+
+- Needs Claude Code 2.1.299 or later; below it the plugin shows `unsupported`. The band and the `/watchdog status`
+  table draw bold text with the `weight` that 2.1.299 added, in place of `bold`, which it deprecated. Claude Code
+  2.1.290 to 2.1.298 refuses `weight` and would draw neither.
+
 ## 0.2.1 - 2026-10-24
 
 - Nudges work again on Claude Code 2.1.299 and later. These versions also report a review's own turn start, and the

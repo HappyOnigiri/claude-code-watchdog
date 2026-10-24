@@ -245,7 +245,7 @@ const stubWorkspace = (on: SessionStubs, seen: Seen, options: Options): void => 
     } else {
       env.set(e.name, e.value);
     }
-    return { value: undefined };
+    return { value: {} };
   });
   on('settings.read', (_$, e) => {
     seen.settingsReads.push(e.source);

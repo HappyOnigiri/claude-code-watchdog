@@ -71,7 +71,12 @@ const ago = (turn: number, now: number): string => {
 };
 
 export const severityText = (el: BandElements, severity: Severity, text: string): RenderElement =>
-  el.Text({ color: COLORS[severity], bold: severity !== 'nit', dimColor: severity === 'nit', children: text });
+  el.Text({
+    color: COLORS[severity],
+    weight: severity === 'nit' ? 'regular' : 'semibold',
+    dimColor: severity === 'nit',
+    children: text,
+  });
 
 const dim = (el: BandElements, text: string): RenderElement => el.Text({ dimColor: true, children: text });
 
@@ -82,7 +87,7 @@ const badge = (el: BandElements, severity: Severity): RenderElement =>
   el.Text({
     backgroundColor: COLORS[severity],
     color: 'inverseText',
-    bold: severity !== 'nit',
+    weight: severity === 'nit' ? 'regular' : 'semibold',
     children: badgeText(severity),
   });
 
@@ -135,7 +140,7 @@ const collapsedLead = (el: BandElements, card: Card, isNamed: boolean): RenderEl
     children: [
       badge(el, card.severity),
       ' ',
-      ...(isNamed ? [el.Text({ bold: true, children: card.name }), dim(el, NAME_SEPARATOR)] : []),
+      ...(isNamed ? [el.Text({ weight: 'semibold', children: card.name }), dim(el, NAME_SEPARATOR)] : []),
       firstSentence(card.text),
     ],
   });
@@ -156,7 +161,7 @@ const expandedHeader = (el: BandElements, card: Card, turn: number): RenderEleme
     children: [
       badge(el, card.severity),
       ' ',
-      el.Text({ bold: true, children: card.name }),
+      el.Text({ weight: 'semibold', children: card.name }),
       dim(el, parts.map((part) => ` · ${part}`).join('')),
     ],
   });

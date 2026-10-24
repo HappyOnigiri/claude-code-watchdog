@@ -102,16 +102,17 @@ const rows = async ($: Engine, props: BandProps = {}): Promise<Record<string, st
     );
   });
 
-// The kit of 2.1.310 adds `weight: 'semibold'` to a bold Text on desktop; 2.1.290 adds nothing. Drop that pair only.
-const withoutBoldWeight = (shown: FoundElement['props'] | undefined) =>
-  shown?.['bold'] === true && shown['weight'] === 'semibold'
-    ? Object.fromEntries(Object.entries(shown).filter(([name]) => name !== 'weight'))
+// The kit of 2.1.310 marks a `weight: 'semibold'` Text `bold: true` on desktop, at times in place of the weight.
+// Read either as the weight.
+const withWeight = (shown: FoundElement['props'] | undefined) =>
+  shown?.['bold'] === true
+    ? { ...Object.fromEntries(Object.entries(shown).filter(([name]) => name !== 'bold')), weight: 'semibold' }
     : shown;
 
 // The props of the first Text that shows exactly each text.
 const textProps = async ($: Engine, texts: readonly RegExp[], props: BandProps = {}) =>
   onBand($, props, async (ui) =>
-    Promise.all(texts.map(async (text) => withoutBoldWeight((await ui.find({ type: 'Text', text }))?.props)))
+    Promise.all(texts.map(async (text) => withWeight((await ui.find({ type: 'Text', text }))?.props)))
   );
 
 // The props of every element of one type, top to bottom.
@@ -211,16 +212,16 @@ describe('band cards (§13.1)', () => {
     await sendNote($, 'concern', NEW_CONCERN);
     expect(await textProps($, [/^ BLOCKER $/u, /^ CONCERN $/u, /^ NIT $/u])).toEqual(
       onBoth([
-        { backgroundColor: 'error', color: 'inverseText', bold: true },
-        { backgroundColor: 'warning', color: 'inverseText', bold: true },
-        { backgroundColor: 'inactive', color: 'inverseText', bold: false },
+        { backgroundColor: 'error', color: 'inverseText', weight: 'semibold' },
+        { backgroundColor: 'warning', color: 'inverseText', weight: 'semibold' },
+        { backgroundColor: 'inactive', color: 'inverseText', weight: 'regular' },
       ])
     );
     expect(await textProps($, [/^1 blocker$/u, /^1 concern$/u, /^1 nit$/u])).toEqual(
       onBoth([
-        { color: 'error', bold: true, dimColor: false },
-        { color: 'warning', bold: true, dimColor: false },
-        { color: 'inactive', bold: false, dimColor: true },
+        { color: 'error', weight: 'semibold', dimColor: false },
+        { color: 'warning', weight: 'semibold', dimColor: false },
+        { color: 'inactive', weight: 'regular', dimColor: true },
       ])
     );
   });
@@ -579,7 +580,7 @@ describe('card row status (§13.1, §11.3, §10.8)', () => {
     stubBand(on, twoWatchdogs(), { state: ON, band: storedBand([storedCard(1, 'held')]) });
     await $.session.start(START);
     expect((await cardRows($)).map(([first]) => first)).toEqual(onBoth(`▸ BLOCKER  default · ${BLOCKER}  held`));
-    expect(await textProps($, [/^default$/u, /^ · $/u])).toEqual(onBoth([{ bold: true }, { dimColor: true }]));
+    expect(await textProps($, [/^default$/u, /^ · $/u])).toEqual(onBoth([{ weight: 'semibold' }, { dimColor: true }]));
   });
 
   test('a second watchdog that is not enabled leaves one on: the row does not name it', async ($, on: Stubs) => {
