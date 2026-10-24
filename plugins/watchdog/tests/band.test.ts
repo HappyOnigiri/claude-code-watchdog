@@ -16,7 +16,7 @@ import type { OnEvents } from '../hooks/on';
 import type { BandProps, BandSurface } from './fixtures/band';
 import type { DeliveryEvents } from './fixtures/delivery';
 import type { OnStateSeen, StateSeed } from './fixtures/on-state';
-import type { Engine, Mounted } from 'claude-code/testing';
+import type { Engine, FoundElement, Mounted } from 'claude-code/testing';
 
 type Stubs = OnEvents<DeliveryEvents | 'state.get' | 'state.set' | 'ui.render'>;
 
@@ -102,10 +102,16 @@ const rows = async ($: Engine, props: BandProps = {}): Promise<Record<string, st
     );
   });
 
+// The kit of 2.1.310 adds `weight: 'semibold'` to a bold Text on desktop; 2.1.290 adds nothing. Drop that pair only.
+const withoutBoldWeight = (shown: FoundElement['props'] | undefined) =>
+  shown?.['bold'] === true && shown['weight'] === 'semibold'
+    ? Object.fromEntries(Object.entries(shown).filter(([name]) => name !== 'weight'))
+    : shown;
+
 // The props of the first Text that shows exactly each text.
 const textProps = async ($: Engine, texts: readonly RegExp[], props: BandProps = {}) =>
   onBand($, props, async (ui) =>
-    Promise.all(texts.map(async (text) => (await ui.find({ type: 'Text', text }))?.props))
+    Promise.all(texts.map(async (text) => withoutBoldWeight((await ui.find({ type: 'Text', text }))?.props)))
   );
 
 // The props of every element of one type, top to bottom.

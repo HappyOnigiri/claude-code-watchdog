@@ -30,6 +30,13 @@ const SPAWN: AgentSpawnInput = {
 const inLoop = (agentId: string, call: { readonly tool: string; readonly [argument: string]: unknown }): ToolCallArgs =>
   ({ ...call, agentId }) as ToolCallArgs;
 
+// The kit of 2.1.310 runs `tool.check` before `$.tool.call`, and an `ask` denies the call; 2.1.290 runs no check.
+// A call of the primary agent or of a subagent passed its check in the engine: the stub allows this id.
+const PASSED_CHECK = 'toolu_passed_check';
+
+const passed = (call: { readonly tool: string; readonly [argument: string]: unknown }): ToolCallArgs =>
+  ({ ...call, tool_use_id: PASSED_CHECK }) as ToolCallArgs;
+
 const fileOf = (input: unknown): string =>
   typeof input === 'object' && input !== null && 'file_path' in input ? String(input.file_path) : '';
 
@@ -47,6 +54,9 @@ const stub = (on: Stubs) => {
   // Core answers a read of a missing file with an error.
   on('tool.call', { file_path: '/outside/missing.ts' }, () => ({ isError: true, result: 'File does not exist.' }));
   on('tool.check', (_$, e) => {
+    if (e.tool_use_id === PASSED_CHECK) {
+      return { decision: 'allow' };
+    }
     checks.push(fileOf(e.input));
     const decision = engineVerdict(e.input);
     return decision === 'deny'
@@ -88,7 +98,7 @@ describe('the mutating-tool guard', () => {
   test('a subagent of the primary agent runs any tool', async ($, on: Stubs) => {
     const { seen } = stub(on);
     await startReview($);
-    const bash = await $.tool.call(inLoop(SUBAGENT, { tool: 'Bash', command: 'npm test' }));
+    const bash = await $.tool.call(passed(inLoop(SUBAGENT, { tool: 'Bash', command: 'npm test' })));
     expect(bash).toEqual({ result: 'core' });
     expect(seen.coreToolCalls).toEqual(['Bash']);
   });
@@ -135,9 +145,9 @@ describe('the read scope', () => {
   test('an ask becomes allow only for a read the primary agent or a subagent made without error', async ($, on: Stubs) => {
     stub(on);
     await startReview($);
-    await $.tool.call({ tool: 'Read', file_path: '/outside/lib/a.ts' });
-    await $.tool.call({ tool: 'Read', file_path: '/outside/missing.ts' });
-    await $.tool.call(inLoop(SUBAGENT, { tool: 'Grep', pattern: 'TODO', path: '/outside/lib' }));
+    await $.tool.call(passed({ tool: 'Read', file_path: '/outside/lib/a.ts' }));
+    await $.tool.call(passed({ tool: 'Read', file_path: '/outside/missing.ts' }));
+    await $.tool.call(passed(inLoop(SUBAGENT, { tool: 'Grep', pattern: 'TODO', path: '/outside/lib' })));
     await $.tool.call(inLoop(REVIEW_AGENT, { tool: 'Read', file_path: '/outside/own.ts' }));
 
     expect(await reviewRead($, '/outside/x/../lib/a.ts')).toEqual({ decision: 'allow' });
@@ -157,7 +167,7 @@ describe('the read scope', () => {
   test('an engine allow and an engine deny stand, and a path above `/` is denied', async ($, on: Stubs) => {
     stub(on);
     await startReview($);
-    await $.tool.call({ tool: 'Read', file_path: '/etc/passwd' });
+    await $.tool.call(passed({ tool: 'Read', file_path: '/etc/passwd' }));
 
     expect(await reviewRead($, '/repo/a.ts')).toEqual({ decision: 'allow' });
     expect(await reviewRead($, '/etc/shadow')).toEqual({
