@@ -1,0 +1,51 @@
+name: release
+
+# When ci passes on a push to main, release the version in plugin.json if it has no tag yet: tag the commit vX.Y.Z and
+# create a GitHub release with the version's CHANGELOG.md section as the notes. A version with no section fails the run.
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+
+jobs:
+  release:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          version=$(jq -r .version plugins/watchdog/.claude-plugin/plugin.json)
+          tag="v$version"
+          # --exit-code gives 2 when the tag is missing; any other failure stops the run.
+          status=0
+          git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null || status=$?
+          if [ "$status" -eq 0 ]; then
+            echo "$tag already exists"
+            exit 0
+          elif [ "$status" -ne 2 ]; then
+            exit "$status"
+          fi
+          awk -v head="## $version " '
+            index($0, "## ") == 1 { if (found) exit; found = index($0, head) == 1; next }
+            found
+          ' CHANGELOG.md > notes.md
+          if ! grep -q '[^[:space:]]' notes.md; then
+            echo "CHANGELOG.md has no section for $version" >&2
+            exit 1
+          fi
+          gh release create "$tag" --target "$SHA" --title "$tag" --notes-file notes.md
