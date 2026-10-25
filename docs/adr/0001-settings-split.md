@@ -1,6 +1,6 @@
 # Only the person decides if reviews run; the project decides which reviews run
 
-A setting goes in plugin `userConfig` if it decides whether reviews run (`onByDefault`), if it sets the nudge cooldown or what a nudge carries (`immuneTurns`, `nudgeNits`), or if it sets what the person sees of the notes (`hideNudgedNotes`, `hideEmptyBand`). Only user settings or managed settings can set `userConfig`, so a cloned repo cannot start paid reviews, add main turns through nudges, or change what the person sees. A setting that shapes the reviews goes in `WATCHDOG.json`, and a project can set it: the watchdogs and their models, `subagents`, `instructions` and `maxNotesPerReview`. The roster is project knowledge, and omp reads it from project files too.
+A setting goes in plugin `userConfig` if it decides whether reviews run (`onByDefault`), if it sets the nudge cooldown or what a nudge carries (`immuneTurns`, `nudgeNits`), or if it sets what the person sees of the notes (`hideNudgedNotes`, `hideEmptyBand`, `hideUi`). Only user settings or managed settings can set `userConfig`, so a cloned repo cannot start paid reviews, add main turns through nudges, or change what the person sees. A setting that shapes the reviews goes in `WATCHDOG.json`, and a project can set it: the watchdogs and their models, `subagents`, `instructions` and `maxNotesPerReview`. The roster is project knowledge, and omp reads it from project files too.
 
 ## Consequences
 

@@ -5,7 +5,17 @@ import { noteId } from '../hooks/note/retract';
 import { bandTarget, stubEngineBand } from './fixtures/band';
 import { PERSON_PROMPT, REVIEW_SPAWN, nudgeTurnText, stubDelivery, wrapped } from './fixtures/delivery';
 import { stateIn, stubState } from './fixtures/on-state';
-import { SESSION_ID, START, USAGE, mainRow, reviewAgentId, turnEnd, typed, SHOW_NUDGED } from './fixtures/session';
+import {
+  SESSION_ID,
+  START,
+  USAGE,
+  mainRow,
+  reviewAgentId,
+  turnEnd,
+  typed,
+  SHOW_NUDGED,
+  HIDE_UI,
+} from './fixtures/session';
 import type { Band } from '../hooks/band/cards';
 import type { Feed } from '../hooks/feed/feed';
 import type { LogRecord } from '../hooks/log/log';
@@ -208,6 +218,18 @@ describe('§10.8 the outdated mark', () => {
 });
 
 describe('§10.8 a retraction', () => {
+  test('under hideUi a retraction writes no row and still drops the note', HIDE_UI, async ($, on: Stubs) => {
+    const { seen, state } = setUp(on);
+    const first = await theRace($);
+    await reviewEnd($, first);
+    const second = await learnReview($, 2);
+    const rows = seen.logs.length;
+    const blockerId = noteId(cardKey({ watchdog: 'default', text: BLOCKER }));
+    expect(await resolve($, second, { id: blockerId, reason: REASON })).toEqual({ result: 'Retracted.' });
+    expect(seen.logs.slice(rows)).toEqual([]);
+    expect(cards(state).map((card) => card.text)).toEqual([OTHER]);
+  });
+
   test(
     'the recap lists each open note with its id and mark; a retraction drops the held note: list, card, row, dump',
     SHOW_NUDGED,

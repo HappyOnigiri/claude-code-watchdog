@@ -78,6 +78,12 @@ review before it nudges, so Claude does not go after a bug it already fixed.
   no `watchdog · no open notes` line. It still shows the failure line and the `watchdog · off` line.
   `nudgeNits` (default `false`) sends a nit the way a concern goes: after Claude's next tool result, or by a nudge
   after its reply, on the concern budget and cooldown. Off, a nit waits for your next prompt.
+  `hideUi` (default `false`) hides the watchdog while the session runs: no band above the prompt box, in any state,
+  and no `watchdog:` line for a note or its retraction. With it on, `hideNudgedNotes` and `hideEmptyBand` change
+  nothing, and `/watchdog off` shows no off line. Notes still go to Claude as before, so a note that does not go by a
+  nudge (a nit while `nudgeNits` is off, or a concern or blocker past the nudge budget, in the cooldown or after Esc)
+  reaches Claude with your next prompt without showing to you; set `nudgeNits` to `true` with it. Error and failure
+  lines, the line of a note dropped for a destructive command, command output and `/watchdog status` still show.
 - Each nudge is one more turn of Claude. After each of your prompts the plugin sends at most 1 nudge for concerns and
   2 for blockers (a concern that comes with a blocker rides along); a later note waits for your next prompt.
   `/watchdog status` shows both counts, for example `nudge 1/1 · blocker 0/2`.

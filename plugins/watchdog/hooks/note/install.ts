@@ -22,7 +22,7 @@ import {
   watchdogNotes,
 } from './history';
 import { deliveryFor, guardNote, heldNoteOf, holdNote, logRow, replaceHeldNote, watchHeldNotes } from './notes';
-import { forgetSkipped, isQuiet, skipRow, watchSkipped } from './quiet';
+import { forgetSkipped, isRowHidden, skipRow, watchSkipped } from './quiet';
 import { SUPERSEDED, retract, retractionOf } from './retract';
 import type { OnEvents } from '../on';
 import type { NoteCall } from './call';
@@ -111,11 +111,11 @@ const judge = (history: NoteHistory, note: Note, key: string): Verdict =>
     }
   );
 
-// §13.2: the row of an admitted note, or none while `hideNudgedNotes` hides it; the row comes due if the note leaves
+// §13.2: the row of an admitted note, or none while `hideNudgedNotes` or `hideUi` hides it; the row comes due if the note leaves
 // the nudge route undelivered.
 const writeNoteRow = ($: EngineInterface, note: HeldNote): void => {
   const name = watchdogBySlug(note.watchdog)?.name ?? note.watchdog;
-  if (isQuiet(note.delivery)) {
+  if (isRowHidden(note.delivery)) {
     skipRow(note, name);
   } else {
     $.ui.log(logRow(note, name));
@@ -218,7 +218,7 @@ const retractNote = async ($: EngineInterface, e: ResolveCall): Promise<ToolCall
   const sessionId = await loadHistory($, note.subagent?.agentId);
   const ack = retract(note, reason);
   forgetSkipped(note.key);
-  if (!isQuiet(note.delivery)) {
+  if (!isRowHidden(note.delivery)) {
     $.ui.log(logRow({ ...note, delivery: SUPERSEDED }, watchdogBySlug(note.watchdog)?.name ?? note.watchdog));
   }
   await saveHistory($, sessionId, note.subagent?.agentId);

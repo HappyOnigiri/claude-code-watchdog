@@ -3,7 +3,7 @@ import { currentTurn } from '../delivery/turns';
 import { currentMode } from '../lifecycle/mode';
 import { isInteractiveSession } from '../lifecycle/on-order';
 import { watchHeldNotes } from '../note/notes';
-import { isQuiet, pruneSkipped, setHideNudged, takeDueRows } from '../note/quiet';
+import { isQuiet, isUiHidden, pruneSkipped, setHideNudged, setHideUi, takeDueRows } from '../note/quiet';
 import { isPersonPrompt } from '../person';
 import { EMPTY_BAND, bandState, changeCard, clearCards, restoreBand, toggleCard } from './cards';
 import { troubleLine } from './problems';
@@ -140,14 +140,15 @@ const readKeys = async ($: EngineInterface) => {
 };
 
 // §13.1: the band reads its keys first, also in a session it does not draw, so that a write that comes before
-// the session start of a reload draws it. It yields to a survey, and draws nothing in a headless session (§10.6).
+// the session start of a reload draws it. It yields to a survey, and draws nothing in a headless session (§10.6) or
+// under `hideUi`.
 const onBand: BandHook = async ($, e, next) => {
   if (e.props.hasSurvey) {
     return next(e);
   }
   const base: RenderElement = await next(e);
   const { isOn, band, health } = await readKeys($);
-  if (!isInteractiveSession() || currentMode() === 'unsupported') {
+  if (isUiHidden() || !isInteractiveSession() || currentMode() === 'unsupported') {
     return base;
   }
   const columns = e.props.bodyColumns;
@@ -188,6 +189,7 @@ export const installBand = (
   options: PluginOptions
 ): void => {
   setHideNudged(options.hideNudgedNotes);
+  setHideUi(options.hideUi);
   settings.isEmptyHidden = options.hideEmptyBand === true;
   watchHeldNotes(changeCard);
   on('tool.call', { tool: /./u }, afterTool);

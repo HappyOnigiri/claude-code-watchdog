@@ -426,5 +426,8 @@ export const SHOW_NUDGED = { options: { hideNudgedNotes: false } };
 // `hideEmptyBand` on: the band draws nothing while on with no card and no failure line.
 export const HIDE_EMPTY = { options: { hideEmptyBand: true } };
 
+// `hideUi` on, with `hideNudgedNotes` off so that a hidden row shows `hideUi` alone hides it.
+export const HIDE_UI = { options: { hideUi: true, hideNudgedNotes: false } };
+
 // `nudgeNits` on, with `hideNudgedNotes` off so a nudged nit still logs its route: a nit goes as a concern does.
 export const NUDGE_NITS = { options: { hideNudgedNotes: false, nudgeNits: true } };

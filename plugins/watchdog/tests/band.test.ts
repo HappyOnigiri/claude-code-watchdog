@@ -10,7 +10,17 @@ import {
   stubDelivery,
 } from './fixtures/delivery';
 import { stateIn, stubState } from './fixtures/on-state';
-import { HEADLESS_START, HOME, NOW, SESSION_ID, START, typed, SHOW_NUDGED, HIDE_EMPTY } from './fixtures/session';
+import {
+  HEADLESS_START,
+  HOME,
+  NOW,
+  SESSION_ID,
+  START,
+  typed,
+  SHOW_NUDGED,
+  HIDE_EMPTY,
+  HIDE_UI,
+} from './fixtures/session';
 import type { Band, Card } from '../hooks/band/cards';
 import type { OnEvents } from '../hooks/on';
 import type { BandProps, BandSurface } from './fixtures/band';
@@ -950,5 +960,39 @@ describe('hideEmptyBand', () => {
     expect(await rows($)).toEqual(
       onBoth({ 'watchdog-divider': divider(), 'watchdog-off': 'watchdog · off · /watchdog on' })
     );
+  });
+});
+
+describe('hideUi', () => {
+  const ON = { isOn: true, source: '/watchdog on' };
+
+  test(
+    'a band with notes draws only the engine band; the cards stay in the band state',
+    HIDE_UI,
+    async ($, on: Stubs) => {
+      const state = stubBand(on);
+      await startReview($);
+      expect(await layout($)).toEqual(onBoth([ENGINE_BAND]));
+      await fourNotes($);
+      expect(await rows($)).toEqual(onBoth({}));
+      expect(await layout($)).toEqual(onBoth([ENGINE_BAND]));
+      const band = stateIn(state, SESSION_ID, 'band') as Band;
+      expect(band.cards.map((card) => card.text)).toEqual([OLD_CONCERN, NIT, BLOCKER, NEW_CONCERN]);
+    }
+  );
+
+  test('the failure line draws nothing', HIDE_UI, async ($, on: Stubs) => {
+    stubBand(on, {}, { state: ON, health: HALTED });
+    await $.session.start(START);
+    expect(await rows($)).toEqual(onBoth({}));
+    expect(await layout($)).toEqual(onBoth([ENGINE_BAND]));
+  });
+
+  test('/watchdog off draws no off line', HIDE_UI, async ($, on: Stubs) => {
+    stubBand(on);
+    await startReview($);
+    await $.command.run(typed('off'));
+    expect(await rows($)).toEqual(onBoth({}));
+    expect(await layout($)).toEqual(onBoth([ENGINE_BAND]));
   });
 });

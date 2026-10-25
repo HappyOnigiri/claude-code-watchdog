@@ -13,6 +13,7 @@ import {
   subagentId,
   turnEnd,
   typed,
+  HIDE_UI,
 } from './fixtures/session';
 import type { LogRecord } from '../hooks/log/log';
 import type { OnEvents } from '../hooks/on';
@@ -338,4 +339,31 @@ describe('the note history of a subagent (§11.4)', () => {
       'the regex accepts expired tokens',
     ]);
   });
+
+  test(
+    'under hideUi a late repeat writes no row and still leaves the band',
+    HIDE_UI,
+    async ($, on: DeliveryStubs & StateStubs) => {
+      const seen = stubDelivery(on, { files: EXPLORE_ON });
+      const state = stubState(on);
+      const known = 'Check the expiry branch.';
+      await startOn($);
+      await append($, mainRow('u1', 'user', 'Fix the login bug.'));
+      await $.turn.complete(turnEnd('t1'));
+      await $.agent.spawn(REVIEW_SPAWN);
+      await sendNote($, 'concern', known);
+      await $.agent.spawn(EXPLORE);
+      await append($, subRow('s1', 'assistant', 'Searching for the token parser.'));
+      await step($, subStep(1));
+      await reviewEnd($);
+      await $.agent.spawn(REVIEW_SPAWN);
+
+      await sendNote($, 'concern', known);
+      const rows = seen.logs.length;
+      await $.turn.complete({ ...turnEnd('s1'), agentId: SUB });
+      expect(seen.logs.slice(rows)).toEqual([]);
+      const band = stateIn(state, SESSION_ID, 'band') as { cards: readonly { text: string; subagent?: string }[] };
+      expect(band.cards.map((card) => [card.text, card.subagent])).toEqual([[known, undefined]]);
+    }
+  );
 });
