@@ -49,6 +49,12 @@ and `Glob`. A `WATCHDOG.json` file sets the roster, the list of watchdogs of a s
   chain counts as one update for `reviewInterval`.
 - `reviewInterval`: review every Nth update that the review mode counts. Default `1`. The skipped updates join the
   next review.
+- `skipWhenNoNudge`: `true` makes an `agent-end` watchdog skip the review at the end of a turn while a concern
+  could not go by a nudge: after Esc, once the nudge of concerns since your last prompt went out, or in the cooldown
+  after a nudge turn. That review's notes would wait for your next prompt. The review stays due instead. It starts
+  at the first tool round of the next turn, and its notes reach Claude in that turn. When that turn uses no tools, it
+  starts at the turn's end if a nudge can go by then. A due review of a watched subagent still runs. Default `false`.
+  It does nothing under `reviewMode: "turn"` (with a warning) and in a `-p` or SDK session.
 - `maxNotesPerReview`: 1 to 32. Default: the top-level value.
 - `instructions`: guidance for this watchdog only.
 

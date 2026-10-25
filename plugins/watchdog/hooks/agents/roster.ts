@@ -18,6 +18,9 @@ export type Watchdog = {
   readonly tools: readonly string[];
   readonly reviewMode: ReviewMode;
   readonly reviewInterval: number;
+  // §7.4, §10.3: `skipWhenNoNudge`: an `agent-end` watchdog leaves a due review of the primary agent's backlog at a
+  // turn end while a concern could not nudge; the review stays due.
+  readonly isSkippedWhenNoNudge: boolean;
   readonly maxNotesPerReview: number;
   readonly instructions: string | null;
   // §13.3: the file that added it, as the status names it; null for the default watchdog.
@@ -35,6 +38,7 @@ export const DEFAULT_WATCHDOG: Watchdog = {
   tools: ['Read', 'Grep', 'Glob'],
   reviewMode: 'turn',
   reviewInterval: 1,
+  isSkippedWhenNoNudge: false,
   maxNotesPerReview: DEFAULT_MAX_NOTES_PER_REVIEW,
   instructions: null,
   source: null,

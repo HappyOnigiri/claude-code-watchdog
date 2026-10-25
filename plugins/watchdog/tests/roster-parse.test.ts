@@ -19,6 +19,7 @@ describe('a WATCHDOG.json entry (§4.2)', () => {
         tools: ['Read', 'Grep', 'Glob'],
         reviewMode: 'turn',
         reviewInterval: 1,
+        isSkippedWhenNoNudge: false,
         maxNotesPerReview: undefined,
         instructions: null,
         source: './WATCHDOG.json',
@@ -37,6 +38,7 @@ describe('a WATCHDOG.json entry (§4.2)', () => {
           tools: ['Read'],
           reviewMode: 'agent-end',
           reviewInterval: 3,
+          skipWhenNoNudge: true,
           maxNotesPerReview: 2,
           instructions: 'Watch the tests.',
         },
@@ -49,6 +51,7 @@ describe('a WATCHDOG.json entry (§4.2)', () => {
       tools: ['Read'],
       reviewMode: 'agent-end',
       reviewInterval: 3,
+      isSkippedWhenNoNudge: true,
       maxNotesPerReview: 2,
       instructions: 'Watch the tests.',
     });
@@ -158,6 +161,7 @@ describe('bad input (§4.6)', () => {
         { name: 'a', reviewInterval: 0 },
         { name: 'b', tools: 'Read' },
         { name: 'c', maxNotesPerReview: 33 },
+        { name: 'f', skipWhenNoNudge: 'yes' },
         { model: 'opus' },
         'd',
         { name: 'e' },
@@ -169,8 +173,23 @@ describe('bad input (§4.6)', () => {
       './WATCHDOG.json: watchdog "a": "reviewInterval" must be an integer of 1 or more; watchdog dropped',
       './WATCHDOG.json: watchdog "b": "tools" must be a list of strings; watchdog dropped',
       './WATCHDOG.json: watchdog "c": "maxNotesPerReview" must be an integer from 1 to 32; watchdog dropped',
-      './WATCHDOG.json: watchdog #4: "name" is required; watchdog dropped',
-      './WATCHDOG.json: watchdog #5: must be an object; watchdog dropped',
+      './WATCHDOG.json: watchdog "f": "skipWhenNoNudge" must be true or false; watchdog dropped',
+      './WATCHDOG.json: watchdog #5: "name" is required; watchdog dropped',
+      './WATCHDOG.json: watchdog #6: must be an object; watchdog dropped',
+    ]);
+  });
+
+  test('skipWhenNoNudge under reviewMode turn gives a warning and keeps the entry', () => {
+    const doc = {
+      watchdogs: [
+        { name: 'a', skipWhenNoNudge: true },
+        { name: 'b', reviewMode: 'agent-end', skipWhenNoNudge: true },
+      ],
+    };
+    const parsed = parseRosterFile(project(doc));
+    expect(parsed.watchdogs?.map((entry) => entry.slug)).toEqual(['a', 'b']);
+    expect(parsed.warnings).toEqual([
+      './WATCHDOG.json: watchdog "a": "skipWhenNoNudge" needs reviewMode "agent-end"; ignored',
     ]);
   });
 

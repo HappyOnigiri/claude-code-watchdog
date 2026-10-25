@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0 - 2026-10-25
+
+- The new watchdog key `skipWhenNoNudge` (default `false`) saves the review of an `agent-end` watchdog that could
+  not reach Claude before your next prompt. While a concern cannot nudge at the end of a turn (after Esc, once the
+  nudge of concerns since your last prompt went out, or in the cooldown after a nudge turn), the watchdog skips that
+  review and keeps it due. It runs at the first tool round of the next turn, so its notes reach Claude in that turn,
+  or at a later turn end where a nudge can go. Reviews of watched subagents and `-p` runs work as before.
+
 ## 0.6.0 - 2026-10-25
 
 - The new setting `hideUi` (default `false`) hides the watchdog while the session runs: no band above the prompt box,
