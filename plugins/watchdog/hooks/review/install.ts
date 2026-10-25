@@ -26,7 +26,7 @@ import type { UpdateClose } from '../feed/feed';
 import type { RecapEntry } from '../note/retract';
 import type { OnEvents } from '../on';
 import type { WatchedSubagent } from '../subagents/watch';
-import type { Backlog } from './backlogs';
+import type { Backlog, Take } from './backlogs';
 import type { ReviewInput } from './prompt';
 import type { Problem, Start } from './slots';
 import type { EngineInterface, Hook, TurnCompleteInput } from 'claude-code';
@@ -129,8 +129,9 @@ const spawnFailed = async ($: EngineInterface, watchdog: Watchdog, failure: Spaw
 // §7.2, §7.4, §7.5, §11.2: a free watchdog merges the backlog with the oldest due update into one review with
 // its recap (§7.7); a try or a retry starts as `start` says (§12.3). The spawn is awaited in a live hook (§7.3);
 // a reject or deny started no agent (§12.2); a resolve without an id keeps the slot (§16.2).
-const spawnReview = async ($: EngineInterface, watchdog: Watchdog, start: Start = {}): Promise<void> => {
-  const backlog = isReady(watchdog.slug, start) ? takeBacklog(watchdog.slug, start) : undefined;
+const spawnReview = async ($: EngineInterface, watchdog: Watchdog, take: Take): Promise<void> => {
+  const { start } = take;
+  const backlog = isReady(watchdog.slug, start) ? takeBacklog(watchdog.slug, take) : undefined;
   if (backlog === undefined) {
     return;
   }
@@ -162,8 +163,8 @@ const spawnReview = async ($: EngineInterface, watchdog: Watchdog, start: Start 
   }
 };
 
-const reviewAll = async ($: EngineInterface, watchdogs: readonly Watchdog[], start: Start = {}): Promise<void> => {
-  await Promise.all(watchdogs.map((watchdog) => spawnReview($, watchdog, start)));
+const reviewAll = async ($: EngineInterface, watchdogs: readonly Watchdog[], take: Take): Promise<void> => {
+  await Promise.all(watchdogs.map((watchdog) => spawnReview($, watchdog, take)));
   await save($);
 };
 
@@ -214,14 +215,15 @@ const onStep: Hook<'turn.step'> = async function* ($, e, next) {
     setFeed(addServerToolUses(currentFeed(), response.serverToolUses ?? []));
   }
   if (isBoundary) {
-    await reviewAll($, currentRoster());
+    await reviewAll($, currentRoster(), { start: {}, isTurnEnd: false });
   }
   return response;
 };
 
 // §7.2, §11.2: a watched agent's `turn.complete` is a boundary; §7.5: an Esc closes the update as interrupted.
 // A review's own `turn.complete` spawns the next review of that watchdog, or its compact retry (§12.3 item 4),
-// awaited there. Any end of a review saves the backlog that its outcome changed, a failed one too (§14.1).
+// awaited there. Any end of a review saves the backlog that its outcome changed, a failed one too (§14.1). §7.4: they
+// start at a turn end, after `next(e)` ran delivery's main turn end; install delivery first and the skip reads it stale.
 const onComplete: Hook<'turn.complete'> = async ($, e, next) => {
   const isBoundary = closeWatchedUpdate(e.agentId, e.isAborted ? 'interrupted' : 'turn', e.turnId);
   const finished = await finishReview($, e);
@@ -229,7 +231,8 @@ const onComplete: Hook<'turn.complete'> = async ($, e, next) => {
   const isNext = (watchdog: Watchdog): boolean =>
     watchdog.slug === finished?.slug && finished.next !== undefined && currentMode() === 'on';
   if (isBoundary || finished !== undefined) {
-    await reviewAll($, isBoundary ? currentRoster() : currentRoster().filter(isNext), finished?.next);
+    const watchdogs = isBoundary ? currentRoster() : currentRoster().filter(isNext);
+    await reviewAll($, watchdogs, { start: finished?.next ?? {}, isTurnEnd: true });
   }
   return result;
 };
@@ -242,13 +245,13 @@ const onPersonPrompt: Hook<'prompt.submit'> = async ($, e, next) => {
     return result;
   }
   if (e.turnId === undefined && payOwedTurnEnd(currentRoster())) {
-    await reviewAll($, currentRoster());
+    await reviewAll($, currentRoster(), { start: {}, isTurnEnd: false });
   }
   const now = await $.clock.now();
   await Promise.all(
     currentRoster().map(async (watchdog) => {
       const from = dueTry(slotOf(watchdog.slug), now);
-      return from === undefined ? undefined : spawnReview($, watchdog, { from });
+      return from === undefined ? undefined : spawnReview($, watchdog, { start: { from }, isTurnEnd: false });
     })
   );
   await save($);

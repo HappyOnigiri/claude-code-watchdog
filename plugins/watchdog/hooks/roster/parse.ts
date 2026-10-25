@@ -60,6 +60,7 @@ const ENTRY_KEYS: Readonly<Record<string, KeyType>> = {
   tools: { type: 'a list of strings', isValid: isStringList },
   reviewMode: { type: '"turn" or "agent-end"', isValid: isReviewMode },
   reviewInterval: { type: 'an integer of 1 or more', isValid: isInterval },
+  skipWhenNoNudge: { type: 'true or false', isValid: isBoolean },
   maxNotesPerReview: { type: NOTES_CAP_TYPE, isValid: isNotesCap },
   instructions: { type: 'a string', isValid: isString },
 };
@@ -113,6 +114,12 @@ const modelOf = (
     : { model: text, level: undefined, noModel: setting.reason, problems: [] };
 };
 
+// §7.4: `skipWhenNoNudge` gates only the turn-end review of `agent-end`; under `turn` it does nothing.
+const skipProblems = (entry: Pick<Watchdog, 'reviewMode' | 'isSkippedWhenNoNudge'>): string[] =>
+  entry.isSkippedWhenNoNudge && entry.reviewMode === 'turn'
+    ? ['"skipWhenNoNudge" needs reviewMode "agent-end"; ignored']
+    : [];
+
 // An entry whose keys all have their type: the defaults fill the absent keys (§4.2).
 const buildEntry = (doc: Doc, name: string, file: RosterText): { entry: ParsedEntry; problems: string[] } => {
   const model = modelOf(field(doc, 'model', isString) ?? DEFAULT_WATCHDOG.model);
@@ -127,11 +134,12 @@ const buildEntry = (doc: Doc, name: string, file: RosterText): { entry: ParsedEn
     tools: tools.tools,
     reviewMode: field(doc, 'reviewMode', isReviewMode) ?? DEFAULT_WATCHDOG.reviewMode,
     reviewInterval: field(doc, 'reviewInterval', isInterval) ?? DEFAULT_WATCHDOG.reviewInterval,
+    isSkippedWhenNoNudge: field(doc, 'skipWhenNoNudge', isBoolean) ?? DEFAULT_WATCHDOG.isSkippedWhenNoNudge,
     maxNotesPerReview: field(doc, 'maxNotesPerReview', isNotesCap),
     instructions: field(doc, 'instructions', isString) ?? null,
     source: file.label,
   };
-  return { entry, problems: [...model.problems, ...tools.problems] };
+  return { entry, problems: [...model.problems, ...tools.problems, ...skipProblems(entry)] };
 };
 
 type EntryResult = { readonly entry?: ParsedEntry; readonly warnings: readonly string[] };

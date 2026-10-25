@@ -1,3 +1,5 @@
+import { watchdogBySlug } from '../agents/roster';
+import { currentRouting, lateRoute } from '../delivery/nudge';
 import { currentTurn } from '../delivery/turns';
 import { closeUpdate, currentFeed, backlogBatch, setFeed } from '../feed/feed';
 import { changeSubagentFeed, closeSubagentUpdate, watchedSubagent, watchedSubagents } from '../subagents/watch';
@@ -5,6 +7,7 @@ import { dropBacklog, waitingUpdates } from './backlog';
 import { cadenceOf, countBoundary, setCadence } from './cadence';
 import { slotOf } from './slots';
 import type { Watchdog } from '../agents/roster';
+import type { Routing } from '../delivery/nudge';
 import type { Batch, Feed, UpdateClose } from '../feed/feed';
 import type { WatchedSubagent } from '../subagents/watch';
 import type { Start } from './slots';
@@ -76,21 +79,50 @@ export const closeBacklog = (agentId: string | undefined, close: UpdateClose): v
 
 const rankOf = (backlog: Backlog): number => order.ranks.get(backlog.batch.updates[0]?.rows.at(-1)?.uuid ?? '') ?? 0;
 
+// §7.4, §10.3, §10.4: `skipWhenNoNudge` leaves the due review of an `agent-end` watchdog on the primary agent's
+// backlog while the session is idle and a late concern would not nudge (Esc, the concern budget spent, the cooldown):
+// its notes would wait for the next person prompt. The review stays due and starts at the next boundary. §10.6: a
+// headless session has no nudge, so the option does nothing there. The rule is a build-session choice on those §§.
+export const isSkippedForNoNudge = (
+  watchdog: Pick<Watchdog, 'reviewMode' | 'isSkippedWhenNoNudge'>,
+  subagent: string | undefined,
+  routing: Routing
+): boolean =>
+  watchdog.reviewMode === 'agent-end' &&
+  watchdog.isSkippedWhenNoNudge &&
+  subagent === undefined &&
+  !routing.isHeadless &&
+  !routing.isTurnRunning &&
+  lateRoute('concern', routing) !== 'nudge pending';
+
+const isSkippedNow = (slug: string, subagent: string | undefined): boolean => {
+  const watchdog = watchdogBySlug(slug);
+  return watchdog !== undefined && isSkippedForNoNudge(watchdog, subagent, currentRouting());
+};
+
+// How a review takes a backlog: as `start` says (§7.4, §12.3), and whether it starts at a turn end: the end of a main
+// turn, or after another review while no main turn runs. `start` alone goes to the slot.
+export type Take = { readonly start: Start; readonly isTurnEnd: boolean };
+
 // §7.4, §12.3: whether a review that starts this way takes from this backlog: a boundary review a due one, a try
-// any one, the compact retry only the backlog of the review it repeats.
-const isTaken = (slug: string, subagent: string | undefined, start: Start): boolean => {
+// any one, the compact retry only the backlog of the review it repeats. A review at a turn end skips a due backlog
+// that `skipWhenNoNudge` leaves.
+const isTaken = (slug: string, subagent: string | undefined, { start, isTurnEnd }: Take): boolean => {
   if (start.isCompact === true) {
     return subagent === start.subagent;
   }
-  return start.from !== undefined || cadenceOf(cadenceKey(slug, subagent)).isDue;
+  if (start.from !== undefined) {
+    return true;
+  }
+  return cadenceOf(cadenceKey(slug, subagent)).isDue && !(isTurnEnd && isSkippedNow(slug, subagent));
 };
 
 // §7.5: a free watchdog takes the backlog with the oldest update that waits, of the ones it may take now; the
 // primary agent's on a tie.
-export const takeBacklog = (slug: string, start: Start): Backlog | undefined => {
+export const takeBacklog = (slug: string, take: Take): Backlog | undefined => {
   const sources = watchedFeeds().filter(({ subagent }) => subagent === undefined || subagent.watchdogs.includes(slug));
   const backlogs = sources.flatMap(({ subagent, feed }) => {
-    const batch = isTaken(slug, subagent?.agentId, start) ? backlogBatch(feed, slug) : undefined;
+    const batch = isTaken(slug, subagent?.agentId, take) ? backlogBatch(feed, slug) : undefined;
     return batch === undefined ? [] : [{ subagent, batch }];
   });
   return backlogs.reduce<Backlog | undefined>(
@@ -121,7 +153,8 @@ export const dropUnboundBacklog = (subagent: string | undefined, slug: string): 
 };
 
 // §10.8: whether a review of the watchdog `slug` runs now (on any watched agent, §7.5), or is due on the watched agent
-// `subagent` (none for the primary agent): the watchdog is idle, and its cadence there is due with a backlog (§7.4).
+// `subagent` (none for the primary agent): the watchdog is idle, and its cadence there is due with a backlog (§7.4)
+// that `skipWhenNoNudge` does not leave.
 export const isReviewComing = (slug: string, subagent: string | undefined): boolean => {
   const slot = slotOf(slug);
   const feed = watchedFeeds().find((watched) => watched.subagent?.agentId === subagent)?.feed;
@@ -129,6 +162,7 @@ export const isReviewComing = (slug: string, subagent: string | undefined): bool
     slot.state === 'idle' &&
     cadenceOf(cadenceKey(slug, subagent)).isDue &&
     feed !== undefined &&
-    backlogBatch(feed, slug) !== undefined;
+    backlogBatch(feed, slug) !== undefined &&
+    !isSkippedNow(slug, subagent);
   return slot.state === 'reviewing' || isDue;
 };
