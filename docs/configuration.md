@@ -45,7 +45,8 @@ and `Glob`. A `WATCHDOG.json` file sets the roster, the list of watchdogs of a s
   the `:<effort>` of `model`.
 - `tools`: see [Tool grants](#tool-grants). `[]` leaves only the watchdog's own `note` and `resolve` tools.
 - `reviewMode`: `turn` (default) reviews at the end of each tool round and of each turn; `agent-end` only at the end of
-  each turn.
+  each turn. With a prompt queued for the next turn, `agent-end` waits for the end of the last queued turn, and that
+  chain counts as one update for `reviewInterval`.
 - `reviewInterval`: review every Nth update that the review mode counts. Default `1`. The skipped updates join the
   next review.
 - `maxNotesPerReview`: 1 to 32. Default: the top-level value.

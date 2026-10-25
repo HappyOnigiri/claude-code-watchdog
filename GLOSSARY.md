@@ -49,6 +49,9 @@ The point where an update of a watched agent closes: the end of a tool round, or
 The updates of one watched agent that wait for a watchdog's next review of that agent. A watchdog has one backlog for each agent that it watches, and it reviews one backlog at a time. The next review of that agent takes all of its updates.
 _Avoid_: queue, pending
 
+**Queued prompt**:
+A prompt the person sends while the main turn runs. Claude Code takes it into that turn at its next tool result, or starts the next turn with it. The queue in the code is this queue of Claude Code, never a backlog.
+
 **Note**:
 One piece of advice from a watchdog. It has one severity: `nit`, `concern`, or `blocker`.
 

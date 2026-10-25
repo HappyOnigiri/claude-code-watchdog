@@ -1,0 +1,6 @@
+{
+  "name": "rd-queued",
+  "version": "0.0.1",
+  "description": "Watchdog test fixture, not a mod to install. release-queue probe: log the prompt queue facts the observer leaves out",
+  "author": { "name": "watchdog live probe" }
+}

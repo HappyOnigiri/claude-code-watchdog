@@ -22,6 +22,9 @@ setup: the cached `~/.cache/claude-code-2.1.299/node_modules/.bin/claude` by its
 - Some checks need an account state or an org setting. They are skipped unless you opt in, and they must be true when
   you do: `--with account:limit` (the account is at its subscription limit), `--with account:billing` (an API-key
   account with no credit), `--with account:api-key` (an API-key account), `--with org:ceiling`, `--with org:managed`.
+- `WDPROBE_SUBMIT=ctrl-enter` sends each typed prompt with ctrl+Enter (a CSI u sequence) in place of Enter, for a
+  machine whose `~/.claude/keybindings.json` binds Enter to `chat:newline`; the probe sessions load that file too.
+  It covers the probe's `type` steps, not a bare `Enter` key that a check sends itself.
 - `--claude-version 2.1.x` runs `~/.cache/claude-code-2.1.x/node_modules/.bin/claude`, for a bump probe.
 - A reload check writes `~/.claude/settings.json`. It is backed up first and restored in the same run, also on Ctrl-C.
   `--no-user-settings` skips those checks.

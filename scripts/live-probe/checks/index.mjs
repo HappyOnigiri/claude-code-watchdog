@@ -5,12 +5,13 @@ import * as l3 from './l3.mjs';
 import * as manual from './manual.mjs';
 import * as releaseDelivery from './release-delivery.mjs';
 import * as releaseFailure from './release-failure.mjs';
+import * as releaseQueue from './release-queue.mjs';
 import * as releaseRuntime from './release-runtime.mjs';
 import * as shared from './shared.mjs';
 
 // §16.3 scenarios: the 11 first checks (§16.4), the L3 column of §16.1, the release-probe items (§16.5), and the
 // manual Desktop checklist.
-const GROUPS = [shared, firstChecks, l3, releaseDelivery, releaseFailure, releaseRuntime, manual];
+const GROUPS = [shared, firstChecks, l3, releaseDelivery, releaseQueue, releaseFailure, releaseRuntime, manual];
 
 const ALL_SCENARIOS = GROUPS.flatMap((group) => group.scenarios);
 
