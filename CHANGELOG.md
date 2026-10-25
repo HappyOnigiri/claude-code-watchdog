@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0 - 2026-10-25
+
+- The new setting `hideUi` (default `false`) hides the watchdog while the session runs: no band above the prompt box,
+  in any state, and no `watchdog:` line for a note or its retraction. Notes still reach Claude as before; a note that
+  does not go by a nudge reaches Claude with your next prompt without showing to you, so use it with
+  `nudgeNits: true`. Error and failure lines, the line of a note dropped for a destructive command, command output and
+  `/watchdog status` still show.
+
 ## 0.5.1 - 2026-10-25
 
 - A watchdog with `reviewMode: "agent-end"` now waits while you have a prompt queued for Claude. Before, it

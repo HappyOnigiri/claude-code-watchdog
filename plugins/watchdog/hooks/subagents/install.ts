@@ -28,6 +28,7 @@ import {
   takeBoundNotes,
 } from '../note/notes';
 import { batchedOf, editsSince } from '../note/outdated';
+import { isUiHidden } from '../note/quiet';
 import { currentLedger } from '../status/ledger';
 import {
   endSubagent,
@@ -161,7 +162,11 @@ const sendLateNotes = async ($: EngineInterface, agentId: string): Promise<void>
     return;
   }
   const sessionId = await loadPrimaryHistory($);
-  late.flatMap((note) => settleLate(sessionId, note)).forEach((row) => $.ui.log(row));
+  const rows = late.flatMap((note) => settleLate(sessionId, note));
+  // `hideUi`: a repeat still leaves the held list; only its row is not written.
+  if (!isUiHidden()) {
+    rows.forEach((row) => $.ui.log(row));
+  }
   await savePrimaryHistory($, sessionId);
 };
 
